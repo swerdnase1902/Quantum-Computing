@@ -1,0 +1,22 @@
+In Cirq, implement the Deutsch-Jozsa algorithm, the Bernstein-Vazirani algorithm, Simon's algorithm, and Grover's algorithm.  Write detailed comments in the code about why it works.  Run the programs on the simulator.  Write a report that covers the following three points.
+
+1. Design and evaluation
+
+    Present the design of how you implemented the black-box function U_f.  Assess how easy to read it is.
+    Present the design of how you parameterized the solution in n.
+    Discuss the number of lines and percentage of code that your four programs share.  Assess how well you succeeded in reusing code from one program to the next.
+    Discuss your effort to test the four programs and present results from the testing.  Report on the execution times for different choices of U_f and discuss what you find.
+    What is your experience with scalability as n grows?  Present a diagram that maps n to execution time.
+
+2. Instructions
+
+    Present a README file that describes how to input the function f, how to run the program, and how to understand the output.
+
+3. Cirq
+
+As a reflection on  programming in Cirq, address the following points.
+
+    List three aspects of quantum programming in Cirq that turned out to be easy to learn and list three aspects that were difficult to learn.
+    List three positives and three negatives of the documentation of Cirq.  
+
+Submit five files, one for each program and one with the report.
