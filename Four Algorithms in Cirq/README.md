@@ -116,7 +116,7 @@ Programs have similar pieces for constructing the quantum circuits and evaluatio
 
 We ran the benchmark and below are the results for standard deviation of runtime for different randomly generated function f at a given `n`. From the results we can tell that for `n` less than 14, the standard deviation of runtime under different U_f is tiny, meaning that choices of U_f do not affect execution time much. But as `n` keeps growing, there is a jump in the standard deviation.
 
-![](/Users/zhezeng/Desktop/ucla/cirq-algos/dj_time_std.png)
+![](deutsch/dj_time_std.png)
 
 
 
@@ -124,9 +124,125 @@ We ran the benchmark and below are the results for standard deviation of runtime
 
 We noticed that the running time grows almost exponentially as `n` grows. Results below show how the running time in log scale increases as `n` increases.
 
-![dj_time_mean](/Users/zhezeng/Desktop/ucla/cirq-algos/dj_time_mean.png)
+![dj_time_mean](deutsch/dj_time_mean.png)
+
+
+
+# Bernstein-Vazirani
+
+## Usage
+
+This python script can be used to perform two things:
+
+1. Run benchmarks on Bernstein-Vazirani algorithm implemented in Cirq that study:
+   1. How the execution time depends on the choice of f (of Z_f)
+   2. How the execution time depends on n, the input size
+2. Run Grover algorithm on an f with specified input bit-string length n
+
+To run the two benchmarks, do
+
+```bash
+python3 ./bernstein-vazirani.py --benchmark
+```
+
+To run Grover algorithm on a function f generated with your specified parameters, do
+
+``` bash
+python3 ./bernstein-vazirani.py --num_bits $n
+```
+
+where `n` is the lenght of the input bit string to function f, whose coefficients are generated at random. For example, `python3 ./my_grover.py --num_bits 10` means to run the Deutsch-Jozsa algorithm on f(x) that takes a 10-bit string.
+
+
+
+## Understanding the Output
+
+### Benchmark
+
+To study "How the execution time depends on the choice of f (of Z_f)", the script will randomly generate 100 function f with input size ranging from 2 to 16 with step size 1. After the executing the Deutsch-Jozsa algorithm on all the functions, we will report the mean and standard deviation of the runtime in file `dj_time_mean.pdf` and `dj_time_std.pdf` respectively.
+
+### Custom input function
+
+Our script will simulate Bernstein-Vazirani algorithm on a function f specified by your input and print out: function coefficients, circuit for the algorithm, measurement result, and runtime. Here is an example run which is pretty self-explanatory.
+
+```
+coef: [0, 0, 0, 1]
+Circuit:
+0: ───H───H───M('result-0')───────────────────────
+
+1: ───H───H───M('result-1')───────────────────────
+
+2: ───H───H───M('result-2')───────────────────────
+
+3: ───H───────@───────────────H───M('result-3')───
+              │
+4: ───X───H───X───────────────────────────────────
+result-0=0
+result-1=0
+result-2=0
+result-3=1
+finish in 0.008637191999999905 seconds
+```
+
+Here, the Bernstein-Vazirani circuit is run and measures the four qubits to be (0, 0, 0, 1), indicating that the coefficients in the black-box function f has its form to be f(x) = 0 * x1 + 0 * x2 + 0 * x3 + 1 * x4 + bias, which is consistent with the message `coef: [0, 0, 0, 1]` in the generation of `f`.
+
+
+
+## Report
+
+### Present the design of how you implemented the black-box function U_f.  
+
+To construct a random U_f, the coefficients and the bias in the function f are randomly generated. If the bias is one, then an X gate is added to the output qubit. For coefficients, if the i-th coefficient is 1, then a CNOT gate is added with the control qubit to be the i-th qubit in the circuit and the target to be the output qubit. Here is the code that implements the logic:
+
+```python
+def make_oracle(qbts, n, visual = False):
+    """
+    Input:    
+    qbts -- qubits in the circuit;
+    n -- length of the input bit string;    
+    Output:
+    oracle -- gate implementation of f
+    """
+    bias = random.randint(0, 1)
+    coef = [random.randint(0, 1) for _ in range(n)]    
+    if visual:
+        print(f"coef: {coef}")
+    gates = []
+    if bias:
+        gates.append(X(qbts[-1]))
+    for i, qbt in enumerate(qbts[:-1]):
+        if coef[i]:
+            gates.append(CNOT(qbt, qbts[-1]))
+    return gates
+
+```
+
+
+
+### Present the design of how you parameterized the solution in n.
+
+Our script support dynamic generation of f. The function `run_algo` support `n` as its input and choose qubits according to `n` to construct the quantum circuit.
+
+### Discuss the number of lines and percentage of code that your four programs share. 
+
+Programs have similar pieces for constructing the quantum circuits and evaluation but are different for each specific algorithms.
+
+### Report on the execution times for different choices of U_f and discuss what you find.
+
+We ran the benchmark and below are the results for standard deviation of runtime for different randomly generated function f at a given `n`. From the results we can tell that for `n` less than 11, the standard deviation of runtime under different U_f is tiny, meaning that choices of U_f do not affect execution time much. But as `n` keeps growing, there is a jump in the standard deviation.
+
+![bv_time_std](bernstein/bv_time_std.png)
+
+
+
+### What is your experience with scalability as n grows? 
+
+We noticed that the running time grows almost exponentially as `n` grows. Results below show how the running time in log scale increases as `n` increases.
+
+![bv_time_mean](bernstein/bv_time_mean.png)
 
 # Simon
+
 ## Usage
 Simply run the code with 
 ```bash
