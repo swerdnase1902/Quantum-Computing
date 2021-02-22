@@ -1,4 +1,5 @@
 # Deutsch-Jozsa
+
 ## Usage
 
 This python script can be used to perform two things:
@@ -125,18 +126,52 @@ We noticed that the running time grows almost exponentially as `n` grows. Result
 
 ![dj_time_mean](/Users/zhezeng/Desktop/ucla/cirq-algos/dj_time_mean.png)
 
-
-
-# Bernstein-Vazirani
-
-TODO
-
-# 
-
 # Simon
+## Usage
+Simply run the code with 
+```bash
+python simon_cirq.py
+```
+The code will perform the following:
+1) randomly generate an S and an Uf; run the simon's algorithm; produce the predicted S. (There are parameters in the code that can control N).
+2) benchmark the simulation time based on the complexity of Uf (result saved in Uf.pdf).
+3) benchmark the simulation time based on different N (result saved in n.pdf).
 
-TODO
+## Report
+### Present the design of how you implemented the black-box function U_f.  Assess how easy to read it is.
 
+This is how we create the oracle U_f:
+
+1. First we copy the inputs to outputs qubits;
+2. Now the current qubit is |x> |x>. We could make it into 
+        |x> |x + b>, for half of x; 
+        |x> |x>, for the other half.
+    Then for any |x_1>|x_1>, |x_2>|x_2> such that x_1 + x_2 = b, they are mapped into either:
+        |x_1>|x_1> and |x_2>|x_1>
+    or 
+        |x_1>|x_2> and |x_2>|x_2>, depending on which half x_1 falls into.
+
+    To determine for any x, which half it belongs to, we use a simple heuristic (which heuristic we choose does not matter as long as it devides the inputs space by half), find a random bit of s such that the bit is 1. If the same bit of x is 1, then we count it as in the first half.
+
+3. Now we only need to add a cirquit that simulates g, which satisfies:
+    g(x) != g(y), iff x != y
+   This could be done as a random permutation function. The random permutation circuits could be very complex or very easy based on our given parameters. We implement the random permutation circuit with a bunch of SWAP and NOT gates.
+
+Please see the code for detailed annotation.
+### Present the design of how you parameterized the solution in n.
+n is a variable that we define in the code and can be changed by the user. The circuits are created dynamically based on n.
+
+### Report on the execution times for different choices of U_f and discuss what you find.
+
+![graph](./simon/Uf.pdf)
+
+As mentioned, our U_f contains a series of randomly generated SWAP and NOT gates and we can easily control the complexity of U_f by controling how many SWAP and NOT gates we add to U_f. Above we plot the run time against how many SWAP and NOT gates we add to U_f, for a fixed n = 6. We can see that the execution times for U_f grows linearly with the number of gates in U_f.
+
+
+### What is your experience with scalability as n grows?  Present a diagram that maps n to execution time.
+![graph](./simon/n.pdf)
+
+Above we plot the execution times (in a log scale) against n. We can see that the execution times grow roughtly exponentially with respect to n. 
 # Grover
 ## Dependency
 * python 3.8
