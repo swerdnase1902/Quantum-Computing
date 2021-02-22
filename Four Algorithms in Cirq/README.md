@@ -1,9 +1,142 @@
-# Simon
-TODO
-# Bernstein-Vazirani
-TODO
 # Deutsch-Jozsa
+## Usage
+
+This python script can be used to perform two things:
+
+1. Run benchmarks on Deutsch-Jozsa algorithm implemented in Cirq that study:
+   1. How the execution time depends on the choice of f (of Z_f)
+   2. How the execution time depends on n, the input size
+2. Run Grover algorithm on an f with specified input bit-string length n
+
+To run the two benchmarks, do
+
+```bash
+python3 ./deutsch-jozsa.py --benchmark
+```
+
+To run Grover algorithm on a function f generated with your specified parameters, do
+
+``` bash
+python3 ./deutsch-jozsa.py --num_bits $n --type $t
+```
+
+where `n` is the lenght of the input bit string to function f, and `t` can be an int in {0, 1, -1} to specify that the generated f is balanced, constant or at random.
+For example, `python3 ./my_grover.py --num_bits 10 --type -1` means to run the Deutsch-Jozsa algorithm on f(x) that takes a 10-bit string which is generated to be constant or balance at random.
+
+
+
+## Understanding the Output
+
+### Benchmark
+
+To study "How the execution time depends on the choice of f (of Z_f)", the script will randomly generate 100 function f with input size ranging from 2 to 16 with step size 1. After the executing the Deutsch-Jozsa algorithm on all the functions, we will report the mean and standard deviation of the runtime in file `dj_time_mean.pdf` and `dj_time_std.pdf` respectively.
+
+### Custom input function
+
+Our script will simulate Deutsch-Jozsa algorithm on a function f specified by your input and print out: function type, circuit for the algorithm, measurement result, and runtime. Here is an example run which is pretty self-explanatory.
+
+```
+generate balanced f
+Circuit:
+0: ───H───────@───H───M('result-0')───────────────────────────────────────────────────
+              │
+1: ───H───────┼───@───H───────────────M('result-1')───────────────────────────────────
+              │   │
+2: ───H───────┼───┼───@───────────────H───────────────M('result-2')───────────────────
+              │   │   │
+3: ───H───────┼───┼───┼───────────────@───────────────H───────────────M('result-3')───
+              │   │   │               │
+4: ───X───H───X───X───X───────────────X───────────────────────────────────────────────
+result-0=1
+result-1=1
+result-2=1
+result-3=1
+finish in 0.011569200000000057 seconds
+```
+
+Here, the Deutsch-Jozsa circuit is run and measures the four qubits to be (1, 1, 1, 1), indicating that the black-box function f is a balanced function, which is consistent with the message `generate balanced f` in the generation of f.
+
+
+
+## Report
+
+### Present the design of how you implemented the black-box function U_f.  
+
+The design of U_f follows https://qiskit.org/textbook/ch-algorithms/deutsch-jozsa.html. For constant function f, if  f(x) = 0 for all x, then no gates in U_f; if f(x) = 1 for all x, then only gate X is added to the output qubit. For balanced function f, it is implemented by adding CNOT gates to each qubit except the output qubit, all targeted at the output qubit. An example illustration is as follows.
+
+![image2](https://qiskit.org/textbook/ch-algorithms/images/deutsch_balanced1.svg)
+
+Here is the code that implements the logic:
+
+```python
+def make_oracle(qbts, n, constant = -1, visual = False):
+    """
+    Input:    
+    qbts -- qubits in the circuit;
+    n -- length of the input bit string;
+    constant -- 1 for generate a constant f, 0 for generate a balanced f, 
+        -1 for f being constant or balanced at random;
+    Output:
+    oracle -- gate implementation of f
+    """
+    if constant < 0:
+        constant = random.randint(0, 1)
+    
+    if constant:  # f being constant
+        if visual:
+            print("generate constant f")
+        if random.randint(0, 1):  # constant output of f
+            return [X(qbts[-1])]
+        else:
+            return []
+    else:
+        if visual:
+            print("generate balanced f")
+        gates = []
+        for qbt in qbts[:-1]:
+            if random.randint(0, 1):  # randomly flip qubits          
+                gates.extend([X(qbt), CNOT(qbt, qbts[-1]), X(qbt)])
+            else:
+                gates.append(CNOT(qbt, qbts[-1]))
+        return gates
+```
+
+
+
+### Present the design of how you parameterized the solution in n.
+
+Our script support dynamic generation of f. The function `run_algo` support `n` as its input and choose qubits according to `n` to construct the quantum circuit.
+
+### Discuss the number of lines and percentage of code that your four programs share. 
+
+Programs have similar pieces for constructing the quantum circuits and evaluation but are different for each specific algorithms.
+
+### Report on the execution times for different choices of U_f and discuss what you find.
+
+We ran the benchmark and below are the results for standard deviation of runtime for different randomly generated function f at a given `n`. From the results we can tell that for `n` less than 14, the standard deviation of runtime under different U_f is tiny, meaning that choices of U_f do not affect execution time much. But as `n` keeps growing, there is a jump in the standard deviation.
+
+![](/Users/zhezeng/Desktop/ucla/cirq-algos/dj_time_std.png)
+
+
+
+### What is your experience with scalability as n grows? 
+
+We noticed that the running time grows almost exponentially as `n` grows. Results below show how the running time in log scale increases as `n` increases.
+
+![dj_time_mean](/Users/zhezeng/Desktop/ucla/cirq-algos/dj_time_mean.png)
+
+
+
+# Bernstein-Vazirani
+
 TODO
+
+# 
+
+# Simon
+
+TODO
+
 # Grover
 ## Dependency
 * python 3.8
@@ -115,11 +248,16 @@ The main thing you should notice here is that the 1000 runs with different rando
 
 ### What is your experience with scalability as n grows?  Present a diagram that maps n to execution time.
 We noticed that the running time grows exponentially as n grows, and that our computers cannot handle simulating n>=15 qubits.
-Here's the bar-graph that shows how the running time increases as n increases
+Here's the bar-graph that shows how the running time increases as n increases.
 
 ![graph](./grover/my_grover_log/num_bits_vs_runtime.png)
 
+
+
+# Miscellaneous
+
 ### List three aspects of quantum programming in Cirq that turned out to be easy to learn and list three aspects that were difficult to learn.
+
 Easy to learn:
 1. Using Python
 2. Easy to follow examples
