@@ -242,7 +242,6 @@ We noticed that the running time grows almost exponentially as `n` grows. Result
 ![bv_time_mean](bernstein/bv_time_mean.png)
 
 # Simon
-
 ## Usage
 Simply run the code with 
 ```bash
@@ -279,15 +278,16 @@ n is a variable that we define in the code and can be changed by the user. The c
 
 ### Report on the execution times for different choices of U_f and discuss what you find.
 
-![graph](./simon/Uf.pdf)
+![graph](./simon/Uf.png)
 
 As mentioned, our U_f contains a series of randomly generated SWAP and NOT gates and we can easily control the complexity of U_f by controling how many SWAP and NOT gates we add to U_f. Above we plot the run time against how many SWAP and NOT gates we add to U_f, for a fixed n = 6. We can see that the execution times for U_f grows linearly with the number of gates in U_f.
 
 
 ### What is your experience with scalability as n grows?  Present a diagram that maps n to execution time.
-![graph](./simon/n.pdf)
+![graph](./simon/n.png)
 
 Above we plot the execution times (in a log scale) against n. We can see that the execution times grow roughtly exponentially with respect to n. 
+
 # Grover
 ## Dependency
 * python 3.8
