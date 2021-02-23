@@ -252,6 +252,10 @@ The code will perform the following:
 2) benchmark the simulation time based on the complexity of Uf (result saved in Uf.pdf).
 3) benchmark the simulation time based on different N (result saved in n.pdf).
 
+## Understanding the Output
+The output is pretty self-explainatory. Here is an example output:
+![graph](./simon/output.png)
+
 ## Report
 ### Present the design of how you implemented the black-box function U_f.  Assess how easy to read it is.
 
