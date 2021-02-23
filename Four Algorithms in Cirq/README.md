@@ -1,6 +1,9 @@
 ### Team Member
+
 Chiao Lu 204848946
+
 Zhe Zeng 605243830
+
 Liunian Li 005271406
 
 # Deutsch-Jozsa
