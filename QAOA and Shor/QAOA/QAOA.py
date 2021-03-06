@@ -19,6 +19,7 @@ import random
 import statistics
 import sys
 import math
+import scipy
 
 
 # The variable names `n`, `m`, `t`, `C`, `B`, `C`, `B`, `Sep`, and `Mix` follow the notation in lecture notes.
@@ -141,13 +142,15 @@ class QAOASolver:
     def _Mix(self, beta):
         # TODO: implement Mix
         B = self.B
-        Mix = np.exp(-1j * beta * B)
+        Mix = -1j * beta * B
+        Mix = scipy.linalg.expm(Mix)
         return Mix
 
     def _Sep(self, gamma):
         # TODO: implement Mix
         C = self.C
-        Sep = np.exp(-1j * gamma * C)
+        Sep = -1j * gamma * C
+        Sep = scipy.linalg.expm(Sep)
         return Sep
 
     def _make_qaoa_circuit(self, beta, gamma):
