@@ -201,7 +201,7 @@ class QAOASolver:
 
 
 if __name__ == '__main__':
-    my_max2sat = Max2SAT(4, 2, 2, "Hello 2SAT")
+    my_max2sat = Max2SAT(6, 50, 2, "Hello 2SAT")
     solver = QAOASolver(my_max2sat, num_tries=10)
     result, num_clause = solver.solve()
     print("The variable assignment we found: ", result)
