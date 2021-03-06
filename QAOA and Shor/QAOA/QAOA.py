@@ -37,18 +37,59 @@ class Max2SAT:
         self.m = m
         self.t = t
 
-        # TODO: discuss how max2sat should look like
-        # TODO: initialize and encode a Max2SAT problem into this class
-        # self.CNF = ???
-        pass
+        # For a problem looking like (x_1 or x_2) and  (x_2 or not x_3):
+        # It will be represented as :
+        # (0, 1, 0, 0), (1, 2, 0, 0)
+        self.clauses = self.random_generate()
+        print(self)
 
     def Count(self, z) -> int:
         # TODO: implement Count
-        return 0
+        # z is either an int or a list of zeros and ones
+        if isinstance(z, int):
+            z = bin(z)[2:].zfill(self.n)
+            z = [[int(i) for i in z]]
+
+        z = z[0]
+
+        total = 0
+        for j in range(self.m):
+            total += self.Countj(j, z)
+
+        return total
 
     def Countj(self, j, z) -> int:
-        # TODO: implement Countj
-        return 0
+        clause = self.clauses[j]
+        v_1, v_2, v_1_negate, v_2_negate = clause
+        
+        if (v_1_negate == 1 and z[v_1] == 0) or (v_1_negate == 0 and z[v_1] == 1) \
+            or (v_2_negate == 1 and z[v_2] == 0) or (v_2_negate == 0 and z[v_2] == 1):
+            return 1
+        else:
+            return 0
+
+    
+    def random_generate(self):
+        current_clauses = set()
+        while True:
+            v_1 = random.randrange(0, self.n - 1)  # Sample the variable with smaller index
+            v_1_negate = random.randrange(0, 2) # Whether variable_1 is negated or not
+            v_2 = random.randrange(v_1 + 1, self.n)  # Sample the variable with larger index
+            v_2_negate = random.randrange(0, 2)  # Whether variable_2 is negated or not
+            clause_tuple = (v_1, v_2, v_1_negate, v_2_negate)
+            current_clauses.add(clause_tuple)
+            if len(current_clauses) == self.m:
+                break
+        return list(current_clauses)
+            
+    
+    def __str__(self):
+        report_str = []
+        for clause in self.clauses:
+            report_str.append("({}v_{} OR {}v_{})".format("~" if clause[2] else "", clause[0], "~" if clause[3] else "", clause[1]))
+            
+        return "  AND  ".join(report_str)
+
 
 
 # ## QAOA Class
