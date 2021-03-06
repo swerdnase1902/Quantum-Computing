@@ -191,8 +191,8 @@ class QAOASolver:
             z = result.measurements['result']
             history.append((z, self.max2sat.Count(z)))
         # Pick the measurement z that maximizes Count(z)
-        max_z, _ = max(history, key=lambda x: x[1])
-        return max_z
+        max_z, num_clause = max(history, key=lambda x: x[1])
+        return max_z, num_clause
 
 
 # ## Example driver for the above code
@@ -203,12 +203,6 @@ class QAOASolver:
 if __name__ == '__main__':
     my_max2sat = Max2SAT(4, 2, 2, "Hello 2SAT")
     solver = QAOASolver(my_max2sat, num_tries=10)
-    result = solver.solve()
-    # After we turn result into a decimal int, it will represent the maximum number of satisfiable clauses in 2SAT
-    result = result.flatten().tolist()
-    result.reverse()
-    result_int = 0
-    while result:
-        result_int <<= 1
-        result_int |= result.pop()
-    print(result_int)
+    result, num_clause = solver.solve()
+    print("The variable assignment we found: ", result)
+    print("Max number of clause that can be satisfied:", num_clause)
