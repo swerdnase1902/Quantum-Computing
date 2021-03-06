@@ -97,7 +97,6 @@ class Max2SAT:
 
 # In[6]:
 
-
 class QAOASolver:
     def _compute_C_(self):
         # TODO: implement C
@@ -114,7 +113,7 @@ class QAOASolver:
             z_vec[z, 0] = 1
             C_column_vecs.append(Count * z_vec)
         C = np.concatenate(C_column_vecs, axis=1)
-        return np.eye(num_dim)
+        return C#np.eye(num_dim)
 
     def _compute_B(self):
         # TODO: implement B
@@ -152,11 +151,32 @@ class QAOASolver:
         return Sep
 
     def _make_qaoa_circuit(self, beta, gamma):
-        # TODO: implement the circuit
-        qubits = cirq.LineQubit.range(self.n)
+        
+        # Initializing the qubits
+        n = self.n
+        inputs = [cirq.GridQubit(i, 0) for i in range(n)]  # inputs x
+        outputs = [ cirq.GridQubit(i + n, 0) for i in range(n)]
+        circuit = cirq.Circuit()
+
+        # 1. Apply H^N to the input quibuts
+        for i in range(n):
+            circuit.append(cirq.H(inputs[i]))
+
+        # 2. Add Sep(gamma)
+        circuit.append(cirq.ops.MatrixGate(self._Sep(gamma)))
+
+        # 3. Add Mix(Betta)
+        circuit.append(cirq.ops.MatrixGate(self._Mix(beta)))
+
+        # 4. Measurement
+        circuit.append(cirq.measure(*inputs, key='result'))
+
+        return circuit
+
+        '''qubits = cirq.LineQubit.range(self.n)
         ops = [cirq.H(q) for q in qubits] + [cirq.measure(*qubits, key='result')]
         qaoa_circuit = cirq.Circuit(ops)
-        return qaoa_circuit
+        return qaoa_circuit'''
 
     def solve(self):
         history = list()
