@@ -157,8 +157,7 @@ class QAOASolver:
         
         # Initializing the qubits
         n = self.n
-        inputs = [cirq.GridQubit(i, 0) for i in range(n)]  # inputs x
-        outputs = [ cirq.GridQubit(i + n, 0) for i in range(n)]
+        inputs = [cirq.GridQubit(i, 0) for i in range(n)]
         circuit = cirq.Circuit()
 
         # 1. Apply H^N to the input quibuts
@@ -166,10 +165,10 @@ class QAOASolver:
             circuit.append(cirq.H(inputs[i]))
 
         # 2. Add Sep(gamma)
-        circuit.append(cirq.ops.MatrixGate(self._Sep(gamma)))
+        circuit.append(cirq.ops.MatrixGate(self._Sep(gamma))(*inputs))
 
         # 3. Add Mix(Betta)
-        circuit.append(cirq.ops.MatrixGate(self._Mix(beta)))
+        circuit.append(cirq.ops.MatrixGate(self._Mix(beta))(*inputs))
 
         # 4. Measurement
         circuit.append(cirq.measure(*inputs, key='result'))
