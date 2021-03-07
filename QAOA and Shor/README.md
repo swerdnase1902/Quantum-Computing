@@ -63,7 +63,8 @@ Here's the graph that tells you how n and execution times relate
 The user can input a custom 2SAT instance...
 TODO: Harold
 
-
+### Correctness Test
+TODO: Harold
 ## Report
 
 ### Present the design of how you parameterized the solution in n.

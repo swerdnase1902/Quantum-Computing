@@ -43,7 +43,7 @@ class Max2SAT:
         # It will be represented as :
         # (0, 1, 0, 0), (1, 2, 0, 0)
         self.clauses = self.random_generate()
-        print(self)
+        #print(self)
 
     def Count(self, z) -> int:
         # TODO: implement Count
@@ -59,6 +59,16 @@ class Max2SAT:
             total += self.Countj(j, z)
 
         return total
+    
+    def exact_solve(self):
+        num_qubits = self.n
+        max_count = 0
+        num_dim = 2 ** num_qubits
+        for z in range(num_dim):
+            Count = self.Count(z)
+            if Count > max_count:
+                max_count = Count
+        return max_count
 
     def Countj(self, j, z) -> int:
         clause = self.clauses[j]
@@ -194,9 +204,21 @@ class QAOASolver:
         return max_z, num_clause
 
 
-# ## Example driver for the above code
+def test_correctness():
+    from tqdm import tqdm
+    errors = []
+    for n in range(3, 8):
+        for m in range(2, n * 3):
+            my_max2sat = Max2SAT(n, m, 2, "Hello 2SAT")
+            solver = QAOASolver(my_max2sat, num_tries=10)
+            result, num_clause = solver.solve()
 
-# In[9]:
+            errors.append(abs(my_max2sat.exact_solve() - num_clause))
+    errors = np.array(errors)
+    print("Out of {} random test cases, the algorithm is completely correct for {} of the cases.".format(len(errors),
+                                                                                                         int(sum((
+                                                                                                                             errors == 0)))))
+    print("Average difference with respect to the correct answer {}".format(float(sum(errors) / errors.shape[0])))
 
 def run_benchmark():
     max_n = 14
@@ -238,11 +260,26 @@ def run_custom_input(n, m, sat_str):
     print("The variable assignment we found: ", result)
     print("Max number of clause that can be satisfied:", num_clause)
 
+def test_correctness_wrapper():
+    print("##################### First Test Run #####################")
+    my_max2sat = Max2SAT(6, 50, 2, "Hello 2SAT")
+    print(my_max2sat)
+    solver = QAOASolver(my_max2sat, num_tries=10)
+    result, num_clause = solver.solve()
+    print("\nThe variable assignment we found: ")
+    for index, i in enumerate(result[0]):
+        print("  v_{} : {}".format(index, i))
+    print("")
+    print("Max number of clause that can be satisfied:", num_clause)
+    print("Exact solver:", my_max2sat.exact_solve())
 
+    print('\n\n\n')
+    print("##################### Testing Correctness #####################")
+    test_correctness()
 if __name__ == '__main__':
 
     argparser = argparse.ArgumentParser(description='Demonstration of the QAQA algorithm')
-    argparser.add_argument('-b', '--benchmark', help='Run various benchmark', action='store_true', default=True)
+    argparser.add_argument('-b', '--benchmark', help='Run various benchmark', action='store_true', default=False)
     argparser.add_argument('-c', '--custom2SAT', action='store_true',
                            help='Run QAQA algorithm with custom 2SAT instance',
                            default=False)
@@ -252,7 +289,7 @@ if __name__ == '__main__':
                            help='If --custom2SAT is set, set the number of variables of the 2SAT instance')
     argparser.add_argument('-m', '--num_clauses',
                            help='If --custom2SAT is set, set the number of clauses of the 2SAT instance')
-
+    argparser.add_argument('-t', '--test_correct', help='Test if QAQA yields the correct answer', default=False, action='store_true')
     args = vars(argparser.parse_args())
 
     if args['custom2SAT']:
@@ -262,8 +299,10 @@ if __name__ == '__main__':
         run_custom_input(n, m, twoSAT_str)
     elif args['benchmark']:
         run_benchmark()
+    elif args['test_correct']:
+        test_correctness_wrapper()
     else:
-        print('Error: You need to either provide --custom2SAT option or --benchmark option. Exiting',
+        print('Error: You need to either provide --custom2SAT option or --benchmark option or --test_correct option. Exiting',
               file=sys.stderr)
         exit(1)
 
