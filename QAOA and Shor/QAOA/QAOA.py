@@ -20,6 +20,7 @@ import statistics
 import sys
 import math
 import scipy
+import argparse
 
 
 # The variable names `n`, `m`, `t`, `C`, `B`, `C`, `B`, `Sep`, and `Mix` follow the notation in lecture notes.
@@ -62,19 +63,18 @@ class Max2SAT:
     def Countj(self, j, z) -> int:
         clause = self.clauses[j]
         v_1, v_2, v_1_negate, v_2_negate = clause
-        
+
         if (v_1_negate == 1 and z[v_1] == 0) or (v_1_negate == 0 and z[v_1] == 1) \
-            or (v_2_negate == 1 and z[v_2] == 0) or (v_2_negate == 0 and z[v_2] == 1):
+                or (v_2_negate == 1 and z[v_2] == 0) or (v_2_negate == 0 and z[v_2] == 1):
             return 1
         else:
             return 0
 
-    
     def random_generate(self):
         current_clauses = set()
         while True:
             v_1 = random.randrange(0, self.n - 1)  # Sample the variable with smaller index
-            v_1_negate = random.randrange(0, 2) # Whether variable_1 is negated or not
+            v_1_negate = random.randrange(0, 2)  # Whether variable_1 is negated or not
             v_2 = random.randrange(v_1 + 1, self.n)  # Sample the variable with larger index
             v_2_negate = random.randrange(0, 2)  # Whether variable_2 is negated or not
             clause_tuple = (v_1, v_2, v_1_negate, v_2_negate)
@@ -82,15 +82,14 @@ class Max2SAT:
             if len(current_clauses) == self.m:
                 break
         return list(current_clauses)
-            
-    
+
     def __str__(self):
         report_str = []
         for clause in self.clauses:
-            report_str.append("({}v_{} OR {}v_{})".format("~" if clause[2] else "", clause[0], "~" if clause[3] else "", clause[1]))
-            
-        return "  AND  ".join(report_str)
+            report_str.append(
+                "({}v_{} OR {}v_{})".format("~" if clause[2] else "", clause[0], "~" if clause[3] else "", clause[1]))
 
+        return "  AND  ".join(report_str)
 
 
 # ## QAOA Class
@@ -114,7 +113,7 @@ class QAOASolver:
             z_vec[z, 0] = 1
             C_column_vecs.append(Count * z_vec)
         C = np.concatenate(C_column_vecs, axis=1)
-        return C#np.eye(num_dim)
+        return C  # np.eye(num_dim)
 
     def _compute_B(self):
         # TODO: implement B
@@ -154,7 +153,7 @@ class QAOASolver:
         return Sep
 
     def _make_qaoa_circuit(self, beta, gamma):
-        
+
         # Initializing the qubits
         n = self.n
         inputs = [cirq.GridQubit(i, 0) for i in range(n)]
@@ -199,10 +198,73 @@ class QAOASolver:
 
 # In[9]:
 
+def run_benchmark():
+    max_n = 14
+    print('We will study how n, the number of variables, affects the execution time of QAOA')
+    print('We will vary n from {} to {}'.format(2, max_n))
+    print('Begin benchmarking:')
+    n_list = list()
+    exec_times = list()
+    for n in range(2, max_n):
+        m = 2 * n
+        print('Testing n={} and m={}'.format(n, m))
+        start = time.time()
+        max2sat = Max2SAT(n, m, 2, "Not Used")
+        print('The Max2SAT instance that we want to solve by QAQA is {}'.format(max2sat))
+        solver = QAOASolver(max2sat, num_tries=1)
+        result, num_clause = solver.solve()
+        end = time.time()
+        elapsed = end - start
+        print('It took {} seconds for QAQA to solve'.format(elapsed))
+        n_list.append(n)
+        exec_times.append(elapsed)
+        print("")
 
-if __name__ == '__main__':
-    my_max2sat = Max2SAT(6, 50, 2, "Hello 2SAT")
+    print('Here\'s the graph that tells you how n and execution times relate')
+    plt.scatter(n_list, exec_times)
+    plt.plot(n_list, exec_times)
+    plt.xlabel('n: number of variables')
+    plt.ylabel('execution time')
+    plt.title('Number of Variables vs Execution Time')
+    plt.show()
+
+
+def run_custom_input(n, m, sat_str):
+    my_max2sat = Max2SAT(n, m, 2, sat_str)
+    print('We will run QAQA with your custom input {}'.format(my_max2sat))
     solver = QAOASolver(my_max2sat, num_tries=10)
     result, num_clause = solver.solve()
+
     print("The variable assignment we found: ", result)
     print("Max number of clause that can be satisfied:", num_clause)
+
+
+if __name__ == '__main__':
+
+    argparser = argparse.ArgumentParser(description='Demonstration of the QAQA algorithm')
+    argparser.add_argument('-b', '--benchmark', help='Run various benchmark', action='store_true', default=True)
+    argparser.add_argument('-c', '--custom2SAT', action='store_true',
+                           help='Run QAQA algorithm with custom 2SAT instance',
+                           default=False)
+    argparser.add_argument('-s', '--str_repr',
+                           help='If --custom2SAT is set, set the 2SAT string representation')
+    argparser.add_argument('-n', '--num_vars',
+                           help='If --custom2SAT is set, set the number of variables of the 2SAT instance')
+    argparser.add_argument('-m', '--num_clauses',
+                           help='If --custom2SAT is set, set the number of clauses of the 2SAT instance')
+
+    args = vars(argparser.parse_args())
+
+    if args['custom2SAT']:
+        n = int(args['num_vars'])
+        m = int(args['num_clauses'])
+        twoSAT_str = args['str_repr']
+        run_custom_input(n, m, twoSAT_str)
+    elif args['benchmark']:
+        run_benchmark()
+    else:
+        print('Error: You need to either provide --custom2SAT option or --benchmark option. Exiting',
+              file=sys.stderr)
+        exit(1)
+
+

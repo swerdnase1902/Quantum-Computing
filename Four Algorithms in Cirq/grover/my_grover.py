@@ -169,21 +169,19 @@ def run_custom_input(n, needle):
 
 if __name__ == '__main__':
 
-    argparser = argparse.ArgumentParser(description='Demonstration of the Grover algorithm')
+    argparser = argparse.ArgumentParser(description='Demonstration of the QAQA algorithm')
     argparser.add_argument('-b', '--benchmark', help='Run various benchmark', action='store_true', default=True)
-    argparser.add_argument('-c', '--custom_function', action='store_true', help='Run Grover algorithm with custom input function',
+    argparser.add_argument('-c', '--custom2SAT', action='store_true', help='Run QAQA algorithm with custom 2SAT instance',
                            default=False)
-    argparser.add_argument('-x', '--needle',
-                           help='If --custom_function is set, set the x such that f(x)=1. This should be in decimal '
-                                'format')
-    argparser.add_argument('-n', '--num_bits', help='If --custom_function is set, set the number of bits that f(x) is '
-                                                    'expecting')
+    argparser.add_argument('-n', '--num_vars',
+                           help='If --custom2SAT is set, set the number of variables of the 2SAT instance')
+    argparser.add_argument('-m', '--num_clauses', help='If --custom2SAT is set, set the number of clauses of the 2SAT instance')
 
     args = vars(argparser.parse_args())
 
-    if args['custom_function']:
-        n = int(args['num_bits'])
-        needle = int(args['needle'])
+    if args['custom2SAT']:
+        n = int(args['num_vars'])
+        m = int(args['num_clauses'])
         run_custom_input(n, needle)
     elif args['benchmark']:
         run_benchmark()
