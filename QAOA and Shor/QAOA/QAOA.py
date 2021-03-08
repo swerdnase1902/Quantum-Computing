@@ -34,7 +34,7 @@ import argparse
 
 
 class Max2SAT:
-    def __init__(self, n, m, t, max2sat: str):
+    def __init__(self, n, m, t, max2sat = None):
         self.n = n
         self.m = m
         self.t = t
@@ -42,8 +42,33 @@ class Max2SAT:
         # For a problem looking like (x_1 or x_2) and  (x_2 or not x_3):
         # It will be represented as :
         # (0, 1, 0, 0), (1, 2, 0, 0)
-        self.clauses = self.random_generate()
-        #print(self)
+        if max2sat is None:
+            self.clauses = self.random_generate()
+            #print(self)
+        else:
+            self.clauses = self.parse(max2sat)
+
+    def parse(self, max2sat_string):
+        #"V1 OR V2 AND V2 OR ~V3"
+        max2sat_string = max2sat_string.lower()
+        max2sat_string = max2sat_string.replace(" ", "")
+        clauses = []
+        for clause in max2sat_string.split("and"):
+            v_a_str = clause.split("or")[0]
+            v_b_str = clause.split("or")[-1]
+            if v_a_str[0] == "~":
+                v_a_negate = 1
+            else:
+                v_a_negate = 0
+            v_a = int(v_a_str.strip("~").strip("v"))
+
+            if v_b_str[0] == "~":
+                v_b_negate = 1
+            else:
+                v_b_negate = 0
+            v_b = int(v_b_str.strip("~").strip("v"))
+            clauses.append((v_a, v_b, v_a_negate, v_b_negate))
+        return clauses
 
     def Count(self, z) -> int:
         # TODO: implement Count
@@ -209,7 +234,7 @@ def test_correctness():
     errors = []
     for n in range(3, 8):
         for m in range(2, n * 3):
-            my_max2sat = Max2SAT(n, m, 2, "Hello 2SAT")
+            my_max2sat = Max2SAT(n, m, 2)
             solver = QAOASolver(my_max2sat, num_tries=10)
             result, num_clause = solver.solve()
 
@@ -231,7 +256,7 @@ def run_benchmark():
         m = 2 * n
         print('Testing n={} and m={}'.format(n, m))
         start = time.time()
-        max2sat = Max2SAT(n, m, 2, "Not Used")
+        max2sat = Max2SAT(n, m, 2)
         print('The Max2SAT instance that we want to solve by QAQA is {}'.format(max2sat))
         solver = QAOASolver(max2sat, num_tries=1)
         result, num_clause = solver.solve()
@@ -257,12 +282,14 @@ def run_custom_input(n, m, sat_str):
     solver = QAOASolver(my_max2sat, num_tries=10)
     result, num_clause = solver.solve()
 
-    print("The variable assignment we found: ", result)
+    print("The variable assignment we found: ")
+    for index, i in enumerate(result[0]):
+        print("  v_{} : {}".format(index, i))
     print("Max number of clause that can be satisfied:", num_clause)
 
 def test_correctness_wrapper():
-    print("##################### First Test Run #####################")
-    my_max2sat = Max2SAT(6, 50, 2, "Hello 2SAT")
+    print("##################### A Random Test Run #####################")
+    my_max2sat = Max2SAT(6, 50, 2)
     print(my_max2sat)
     solver = QAOASolver(my_max2sat, num_tries=10)
     result, num_clause = solver.solve()
@@ -276,6 +303,7 @@ def test_correctness_wrapper():
     print('\n\n\n')
     print("##################### Testing Correctness #####################")
     test_correctness()
+
 if __name__ == '__main__':
 
     argparser = argparse.ArgumentParser(description='Demonstration of the QAQA algorithm')
