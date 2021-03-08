@@ -7,8 +7,107 @@ Zhe Zeng 605243830
 Liunian Li 005271406
 
 # Shor
-...
-# QAOA
+## Usage
+
+The python script `shor.py` can be used to perform two things:
+
+1. Run the Shor's algorithm with a specifed integer `n` and it outputs an non-trivial prime facotr of `n`, for example, run
+
+   ```shell
+   python ./shor.py --max 10 15
+   ```
+
+   where the argument `--max` specifies the maximum number of trials in the Shor's algorithm, and `15` is the input integer to the algorithm such that the algorithm will return a non-trivial factor of it.
+
+2. Run the Shor's algorithm on a range of problems to meaure how execution time changes as the input grows. For example, run
+
+   ```shell
+   python ./shor.py --max 10 --benchmark 32
+   ```
+
+   where the argument `--max` specifies the maximum number of trials in the Shor's algorithm for each input integer `n` in the range `[3, 32]`. There are two main measurements:
+
+   i ) to measure how the execution time changes as the input integer `n` grows, where the execution time is averaged across ten trials by default.
+
+   ii) to measure how for a fixed integer `n < 32 ` that actually calls the quantum subroutine, the execution time changes as the base `a` changes in the range `[2, n - 1]`.
+
+## Understanding the Output
+
+### Custom Input
+
+The user can specify an integer `n` as input. For example, if we run 
+
+```shell
+python ./shor.py --max 10 15
+```
+
+We will get the following output:
+
+```shell
+finish in $t seconds
+found factor $f for input integer 15
+```
+
+where `$t` is the total runtime and `$f` is `3` or `5` if the Shor's algorithm manages to find the factor in the `10` trials, otherwise we will get
+
+```shell
+finish in $t seconds
+factor not found
+```
+
+### Benchmark
+
+To study how the execution time is affected by the input `n` and the base `a` respectively, we will print out the execution time as averages over ten runs and the standard deviation, and save the graphs for execution time vs. input `n` as `shor_time_mean.png` and `shor_time_std.png` respectively, as well as the graphs for execution time vs. base `a` for a fixed `n` as `shor_{n}_time_mean.png` and `shor_{n}_time_std.png`.
+
+## Report
+
+### Present the design of how you parameterized the solution in n.
+
+Our script supports user-specified input `n` by parameterizing each components in `n` as shown below.
+
+```python
+def run(n, n_trials=10, benchmark=False):    
+    assert n > 1, f"the input integer should be greater than 1"
+    if n % 2 == 0:
+        return 2
+    if isprime(n):  # n is a prime
+        return n
+    d = primepower(n)
+    if d:  # n is the power of a prime
+        return d
+    for _ in range(n_trials):
+      	a = random.randint(2, n - 1)
+        d = math.gcd(a, n)            
+        if 1 < d < n:
+            return d  # d is a non-trivial factor of n
+        r = find_order(a, n)
+        if r is None or r % 2 != 0:
+            continue
+            x = (a ** (r // 2) - 1) % n
+            d = math.gcd(x, n)
+            if d > 1:
+            	  return d
+```
+
+### Discuss your effort to test the program
+
+We put the test for helper function `primepower` in `unit_test` to test the correctness and further verify the output factors for input integers in `[3, 32]` are correct to test our implemented program.
+
+### What is your experience with scalability as n grows? 
+
+The execution time (in log scale) vs. input integer `n` is presented as below.
+
+![shor_mean](shor_mean.png)
+
+We notice that the execution time peaks at two input, `15` and `21` respectively. This is because only these two inputs actually invokes the quantum subroutine. We also group the execution time by the bit lenght of input `n` as below, where we notice that an increase in the runtime as the input bit lenght increases, execept for input bit length 6 since in this group there is only result for `n = 32` that does not invoke the quantum subroutine.
+
+![shor_plot_1.5](group_mean.png)
+
+We further look into how execution time (in log scale) changes as the base `a` in the quantum subroutine changes shown as below where the execution time varies a lot for different base.
+
+![shor_plot_2](shor_15_time_mean.png)
+
+#  QAOA
 
 ## Usage
 
