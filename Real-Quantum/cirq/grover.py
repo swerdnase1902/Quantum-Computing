@@ -8,6 +8,7 @@ import time
 import random
 import statistics
 import sys
+import requests
 
 import timeout_decorator
 
@@ -56,20 +57,42 @@ def make_oracle(n, f):
     return Z_f
 
 
-def make_grover_curcuit(n, Z_f):
+def make_grover_curcuit(n, Z_f) -> cirq.Circuit:
     Z_0 = np.eye(2 ** n)
     Z_0[0, 0] = -1
     qubits = cirq.LineQubit.range(n)
-
+    """
+    # below is NOT good for sending to Google because Google doesn't know OracleGate
     Z_0_gate = OracleGate(n, Z_0, 'Z_0')
     Z_f_gate = OracleGate(n, Z_f, 'Z_f')
 
     ops = [cirq.H(q) for q in qubits] + [Z_f_gate.on(*qubits)] + [cirq.H(q) for q in qubits] + [
         Z_0_gate.on(*qubits)] + [cirq.H(q) for q in
                                  qubits] + [cirq.measure(*qubits, key='result')]
+    """
+    Z_0_gate = cirq.ops.MatrixGate(Z_0)#OracleGate(n, Z_0, 'Z_0')
+    Z_f_gate = cirq.ops.MatrixGate(Z_f)#OracleGate(n, Z_f, 'Z_f')
+    ops = [cirq.H(q) for q in qubits] + [Z_f_gate(*qubits)] + [cirq.H(q) for q in qubits] + [
+        Z_0_gate(*qubits)] + [cirq.H(q) for q in
+                                 qubits] + [cirq.measure(*qubits, key='result')]
     grover_circuit = cirq.Circuit(ops)
     return grover_circuit
     print(grover_circuit)
+
+
+def load_credential():
+    # will return (ucla_email, student_id)
+    if hasattr(load_credential, 'email') and hasattr(load_credential, 'uid'):
+        return load_credential.email, load_credential.uid
+    credential_file = open('../cirq_credentials.txt', 'r')
+    lines = credential_file.readlines()
+    credential_file.close()
+    email = lines[0].strip()
+    uid = lines[1].strip()
+
+    load_credential.email = email
+    load_credential.uid = uid
+    return email, uid
 
 
 def run_benchmark():
@@ -107,8 +130,6 @@ def run_benchmark():
     print('mean running time: {}, standard deviation of running time: {}'.format(
         statistics.mean(run_times_log_different_f), statistics.pstdev(run_times_log_different_f)))
 
-
-
     @timeout_decorator.timeout(300, timeout_exception=StopIteration)
     def timeout_wrapper(f, n):
         Z_f = make_oracle(n, f)
@@ -117,7 +138,8 @@ def run_benchmark():
         result = simulator.run(grover_f)
 
     max_n = 14
-    print('Second, we will vary n from 1 to {} to get a sense of how the number of bits affect the runtime'.format(max_n))
+    print(
+        'Second, we will vary n from 1 to {} to get a sense of how the number of bits affect the runtime'.format(max_n))
     run_times_log_different_n = list()
     ns = list()
     timeout_occurred = 0
@@ -142,47 +164,89 @@ def run_benchmark():
 
     print('Finished testing how different values of n affect the runtime. Generating the report...')
     if timeout_occurred:
-        print('Beware that we experienced a timeout (5 min) at n={}. The report below will not show any n>={}'.format(timeout_occurred, timeout_occurred))
+        print('Beware that we experienced a timeout (5 min) at n={}. The report below will not show any n>={}'.format(
+            timeout_occurred, timeout_occurred))
 
     plt.bar(ns, run_times_log_different_n, align='center')  # A bar chart
     plt.xlabel('Number of bits')
     plt.ylabel('Grover runtimes (seconds)')
     plt.show()
 
+def send_to_google(circuit: cirq.Circuit, repetitions=100):
+    send_url = 'http://quant-edu-scalability-tools.wl.r.appspot.com/send'
+    json_circuit = cirq.to_json(circuit)
+    email, uid = load_credential()
+    job_payload = {
+        'circuit': json_circuit,
+        'email': email,
+        'repetitions': repetitions,
+        'student_id': uid
+    }
+    response = requests.post(url=send_url, json=job_payload)
+    return response
+    print(response.text)
 
-
-
-def run_custom_input(n, needle):
+def run_custom_input(n, needle, google=False):
     print('Will be running Grover algorithm on your input f(x) that takes {} bits with f({})=1'.format(n, needle))
+    if google:
+        print('Note: Will run the circuit on Google\'s quantum computer')
     if (needle > (2 ** n) - 1) or (needle < 0):
         raise ValueError("Your needle cannot be represented using {} bits".format(n))
     f = CustumFunction(n, needle)
     Z_f = make_oracle(n, f)
     grover_f = make_grover_curcuit(n, Z_f)
+    if google:
+        response = send_to_google(grover_f)
+        print('Just sent your circuit to Google, below is the response.text')
+        print(response.text)
+        # parse job_id
+        jobid = response.text[response.text.find(':')+1:].strip()
+        return jobid
+
     simulator = cirq.Simulator()
     result = simulator.run(grover_f, repetitions=10000)
     print('Now, I am going to run the Grover circuit 10000 times to search for the needle...')
     print('Measurement results')
     print(result.histogram(key='result'))
-    print('If Grover circuit did it\'s job, then the most occurring key in the above result should be the needle {}'.format(needle))
+    print(
+        'If Grover circuit did it\'s job, then the most occurring key in the above result should be the needle {}'.format(
+            needle))
 
+def lookup_google(jobid=None):
+    email, uid = load_credential()
+    lookup_url = 'http://quant-edu-scalability-tools.wl.r.appspot.com/lookup'
 
+    if jobid:
+        # if isinstance(jobid, str):
+        #     jobid = int(jobid)
+        lookup_ids = {'job_id': [jobid], 'student_id': uid}
+    else:
+        lookup_ids = {'student_id': uid}
+    response = requests.get(lookup_url, params=lookup_ids)
+    data = response.json()
+    return data
 if __name__ == '__main__':
 
-    argparser = argparse.ArgumentParser(description='Demonstration of the QAQA algorithm')
+    argparser = argparse.ArgumentParser(description='Demonstration of the Grover algorithm')
     argparser.add_argument('-b', '--benchmark', help='Run various benchmark', action='store_true', default=True)
-    argparser.add_argument('-c', '--custom2SAT', action='store_true', help='Run QAQA algorithm with custom 2SAT instance',
+    argparser.add_argument('-c', '--custom_function', action='store_true',
+                           help='Run Grover algorithm with custom input function',
                            default=False)
-    argparser.add_argument('-n', '--num_vars',
-                           help='If --custom2SAT is set, set the number of variables of the 2SAT instance')
-    argparser.add_argument('-m', '--num_clauses', help='If --custom2SAT is set, set the number of clauses of the 2SAT instance')
-
+    argparser.add_argument('-x', '--needle',
+                           help='If --custom_function is set, set the x such that f(x)=1. This should be in decimal '
+                                'format')
+    argparser.add_argument('-n', '--num_bits', help='If --custom_function is set, set the number of bits that f(x) is '
+                                                    'expecting')
+    argparser.add_argument('-g', '--google', help='Run on Google\'s quantum computer', action='store_true',
+                           default=False)
     args = vars(argparser.parse_args())
 
-    if args['custom2SAT']:
-        n = int(args['num_vars'])
-        m = int(args['num_clauses'])
-        run_custom_input(n, needle)
+    if args['custom_function']:
+        n = int(args['num_bits'])
+        needle = int(args['needle'])
+        jobid = run_custom_input(n, needle, google=args['google'])
+        if args['google']:
+            lookup_google(jobid=jobid)
     elif args['benchmark']:
         run_benchmark()
     else:
