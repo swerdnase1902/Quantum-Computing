@@ -40,7 +40,40 @@ def make_oracle(n, f):
     return Z_f
 
 
-def make_grover_curcuit(n, Z_f) -> cirq.Circuit:
+def make_grover_circuit(n, f) -> cirq.Circuit:
+    total_qubits = cirq.LineQubit.range(n + 1)
+    clist = []
+    for idx in range(n):
+        clist.append(total_qubits[idx])
+    free_qubits = []
+    s = 0
+    for x in range(2 ** n):
+        if f(x) == 1:
+            s = x
+            break
+    unset_bit_indices = []
+    counter = n
+    while counter > 0:
+        t = s & 1
+        if t == 0:
+            unset_bit_indices.append(counter - 1)
+        s = s >> 1
+        counter = counter - 1
+
+    ops = [cirq.X(total_qubits[-1])] + \
+          [cirq.H(q) for q in total_qubits] + \
+          [cirq.X(q) for i, q in enumerate(total_qubits) if i in unset_bit_indices] + \
+          [cirq.decompose_multi_controlled_x(clist, total_qubits[-1], free_qubits)] + \
+          [cirq.X(q) for i, q in enumerate(total_qubits) if i in unset_bit_indices] + \
+          [cirq.H(q) for q in total_qubits[:-1]] + \
+          [cirq.X(q) for i, q in enumerate(total_qubits[:-1])] + \
+          [cirq.decompose_multi_controlled_x(clist, total_qubits[-1], free_qubits)] + \
+          [cirq.X(q) for i, q in enumerate(total_qubits[:-1])] + \
+          [cirq.H(q) for q in total_qubits[:-1]] + [cirq.measure(*(total_qubits[:-1]), key='result')]
+    final_circuit = cirq.Circuit(ops)
+    return final_circuit
+
+def make_grover_curcuit_old(n, Z_f) -> cirq.Circuit:
     Z_0 = np.eye(2 ** n)
     Z_0[0, 0] = -1
     qubits = cirq.LineQubit.range(n)
@@ -96,8 +129,8 @@ def run_benchmark():
         for run in range(num_runs_for_f):
             f = CustumFunction(n, needle)
             start = time.time()
-            Z_f = make_oracle(n, f)
-            grover_f = make_grover_curcuit(n, Z_f)
+            # Z_f = make_oracle(n, f)
+            grover_f = make_grover_circuit(n, f)
             simulator = cirq.Simulator()
             result = simulator.run(grover_f)
             end = time.time()
@@ -113,8 +146,9 @@ def run_benchmark():
 
     @timeout_decorator.timeout(300, timeout_exception=StopIteration)
     def timeout_wrapper(f, n):
-        Z_f = make_oracle(n, f)
-        grover_f = make_grover_curcuit(n, Z_f)
+        # Z_f = make_oracle(n, f)
+        # grover_f = make_grover_curcuit(n, Z_f)
+        grover_f = make_grover_circuit(n, f)
         simulator = cirq.Simulator()
         result = simulator.run(grover_f)
 
@@ -192,8 +226,9 @@ def run_custom_input(n, needle, ibm=False):
     if (needle > (2 ** n) - 1) or (needle < 0):
         raise ValueError("Your needle cannot be represented using {} bits".format(n))
     f = CustumFunction(n, needle)
-    Z_f = make_oracle(n, f)
-    grover_f = make_grover_curcuit(n, Z_f)
+    # Z_f = make_oracle(n, f)
+    # grover_f = make_grover_curcuit(n, Z_f)
+    grover_f = make_grover_circuit(n, f)
     if ibm:
         print('Will convert Cirq circuit to Qiskit circuit and send to IBM...')
         response = send_to_ibm(grover_f)
