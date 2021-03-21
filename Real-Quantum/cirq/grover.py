@@ -245,6 +245,47 @@ def run_custom_input(n, needle, google=False):
         'If Grover circuit did it\'s job, then the most occurring key in the above result should be the needle {}'.format(
             needle))
 
+def test_hardcoded_error_correct_on_google():
+    n, needle = 1, 1
+    qubits = cirq.LineQubit.range(3*n)
+
+    Z_0_gate = cirq.Z
+    Z_f_gate = cirq.Z
+    ops = list()
+    ops += [cirq.CNOT(qubits[0], qubits[1])]
+    ops += [cirq.CNOT(qubits[0], qubits[2])]
+
+    # Grover part
+    ops += [cirq.H(q) for q in qubits] + [Z_f_gate.on(q) for q in qubits] + [cirq.H(q) for q in qubits] + [
+        Z_0_gate.on(q) for q in qubits] + [cirq.H(q) for q in
+                                 qubits]
+
+    ops += [cirq.CNOT(qubits[0], qubits[1])]
+    ops += [cirq.CNOT(qubits[0], qubits[2])]
+    ops += [cirq.TOFFOLI(qubits[2], qubits[1], qubits[0])]
+
+    ops += [cirq.measure(*qubits, key='result')]
+    grover_circuit = cirq.Circuit(ops)
+
+
+    response = send_to_google(grover_circuit)
+    print('Just sent your circuit to Google, below is the response.text')
+    print(response.text)
+    # parse job_id
+    jobid = response.text[response.text.find(':') + 1:].strip()
+    return jobid
+
+
+    # Test the above code locally on simulator
+    simulator = cirq.Simulator()
+    result = simulator.run(grover_circuit, repetitions=10000)
+    print('Now, I am going to run the Grover circuit 10000 times to search for the needle...')
+    print('Measurement results')
+    print(result.histogram(key='result'))
+    print(
+        'If Grover circuit did it\'s job, then the most occurring key in the above result should be the needle {}'.format(
+            needle))
+
 def lookup_google(jobid=None):
     email, uid = load_credential()
     lookup_url = 'http://quant-edu-scalability-tools.wl.r.appspot.com/lookup'
@@ -252,7 +293,7 @@ def lookup_google(jobid=None):
     if jobid:
         # if isinstance(jobid, str):
         #     jobid = int(jobid)
-        lookup_ids = {'job_id': [jobid], 'student_id': uid}
+        lookup_ids = {'job_id': [jobid]}
     else:
         lookup_ids = {'student_id': uid}
     response = requests.get(lookup_url, params=lookup_ids)
@@ -272,6 +313,8 @@ if __name__ == '__main__':
                                                     'expecting')
     argparser.add_argument('-g', '--google', help='Run on Google\'s quantum computer', action='store_true',
                            default=False)
+    argparser.add_argument('-e', '--error_correct', help='If testing on Google, demo error correction of bit-flip using a hard-coded n=1 qubit example', action='store_true',
+                           default=False)
     args = vars(argparser.parse_args())
 
     if args['custom_function']:
@@ -280,7 +323,11 @@ if __name__ == '__main__':
         jobid = run_custom_input(n, needle, google=args['google'])
         if args['google']:
             lookup_google(jobid=jobid)
+    elif args['google'] and args['error_correct']:
+        jobid = test_hardcoded_error_correct_on_google()
+        lookup_google(jobid)
     elif args['benchmark']:
+        raise NotImplementedError("No benchmarking for this assignment")
         run_benchmark()
     else:
         print('Error: You need to either provide --benchmark option or --custom_function option. Exiting',

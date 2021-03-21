@@ -218,6 +218,31 @@ def send_to_ibm(circuit: cirq.Circuit, repetitions=100):
     print(delayed_counts)
     return counts, delayed_counts
 
+def test_hardcoded_error_correct_on_ibm():
+    n, needle = 1, 1
+    qubits = cirq.LineQubit.range(3 * n)
+
+    Z_0_gate = cirq.Z
+    Z_f_gate = cirq.Z
+    ops = list()
+    ops += [cirq.CNOT(qubits[0], qubits[1])]
+    ops += [cirq.CNOT(qubits[0], qubits[2])]
+
+    # Grover part
+    ops += [cirq.H(q) for q in qubits] + [Z_f_gate.on(q) for q in qubits] + [cirq.H(q) for q in qubits] + [
+        Z_0_gate.on(q) for q in qubits] + [cirq.H(q) for q in
+                                           qubits]
+
+    ops += [cirq.CNOT(qubits[0], qubits[1])]
+    ops += [cirq.CNOT(qubits[0], qubits[2])]
+    ops += [cirq.TOFFOLI(qubits[2], qubits[1], qubits[0])]
+
+    ops += [cirq.measure(*qubits, key='result')]
+    grover_circuit = cirq.Circuit(ops)
+
+    print('Will convert Cirq circuit to Qiskit circuit and send to IBM...')
+    response = send_to_ibm(grover_circuit)
+    return
 
 def run_custom_input(n, needle, ibm=False):
     print('Will be running Grover algorithm on your input f(x) that takes {} bits with f({})=1'.format(n, needle))
@@ -257,6 +282,10 @@ if __name__ == '__main__':
                                                     'expecting')
     argparser.add_argument('-i', '--ibm', help='Run on IBM\'s quantum computer', action='store_true',
                            default=False)
+    argparser.add_argument('-e', '--error_correct',
+                           help='If testing on IBM, demo error correction of bit-flip using a hard-coded n=1 qubit example',
+                           action='store_true',
+                           default=False)
     args = vars(argparser.parse_args())
     if args['ibm']:
         apikey = load_credential()
@@ -265,8 +294,10 @@ if __name__ == '__main__':
         n = int(args['num_bits'])
         needle = int(args['needle'])
         jobid = run_custom_input(n, needle, ibm=args['ibm'])
+    elif args['ibm'] and args['error_correct']:
+        jobid = test_hardcoded_error_correct_on_ibm()
     elif args['benchmark']:
-        raise NotImplementedError('Not yet implemented benchmark!')
+        raise NotImplementedError('No benchmark for this assignment!')
         run_benchmark()
     else:
         print('Error: You need to either provide --benchmark option or --custom_function option. Exiting',
