@@ -8,6 +8,7 @@ from pprint import pprint
 from tqdm import tqdm
 import math
 import requests
+import numpy
 
 '''
 This is how we create the oracle:
@@ -27,10 +28,13 @@ This is how we create the oracle:
     g(x) != g(y), iff x != y
    This could be done as a random permutation function.
 '''
-def oracle(inputs, outputs, s, circuit, n, swap_time = 0, not_time = 0): 
+def oracle(inputs, outputs, s, circuit, n, swap_time = 0, not_time = 0, other_inputs = None): 
     # 1
     for index in range(len(inputs)):
-        circuit.append(cirq.CNOT(inputs[index], outputs[index])) # Becuase outputs_quibuts are all zeros, we can do the copy with CNOT
+        circuit.append(cirq.CNOT(inputs[index], outputs[index]))  # Becuase outputs_quibuts are all zeros, we can do the copy with CNOT
+        if other_inputs[0] is not None:
+            circuit.append(cirq.CNOT(other_inputs[0][index], outputs[index]))
+            circuit.append(cirq.CNOT(other_inputs[1][index], outputs[index]))
 
     # 2
     all_non_zero_indexes_of_s = []
@@ -43,7 +47,10 @@ def oracle(inputs, outputs, s, circuit, n, swap_time = 0, not_time = 0):
         for i in range(len(s)):
             if s[i]:
                 circuit.append(cirq.CNOT(inputs[chosen_index], outputs[i]))
-    
+                if other_inputs[0] is not None:
+                    circuit.append(cirq.CNOT(other_inputs[0][chosen_index], outputs[i]))
+                    circuit.append(cirq.CNOT(other_inputs[1][chosen_index], outputs[i]))
+            
     # 3
     # The random permutation circuits could be very complex or very easy based on our given parameters.
     # We implement the random permutation circuit with a bunch of SWAP and NOT gates.
@@ -116,23 +123,48 @@ def lookup_google(jobid=None):
     data = response.json()
     return data
 
-def make_circuit(s, n, not_time, swap_time, m, tolerance):
+def make_circuit(s, n, not_time, swap_time, m, tolerance, error_correction = False):
 
     # Initializing the qubits
     inputs = [cirq.GridQubit(i, 0) for i in range(n)]  # inputs x
-    outputs = [ cirq.GridQubit(i + n, 0) for i in range(n)]
+    outputs = [cirq.GridQubit(i + n, 0) for i in range(n)]
+    if error_correction:
+        inputs_1 = [cirq.GridQubit(i + 2 * n, 0) for i in range(n)]
+        inputs_2 = [cirq.GridQubit(i + 3 * n, 0) for i in range(n)]
+    else:
+        inputs_1 = None
+        inputs_2 = None
     circuit = cirq.Circuit()
+
+    if error_correction:
+        for i in range(n):
+            circuit.append(cirq.CNOT(inputs[i], inputs_1[i]))
+            circuit.append(cirq.CNOT(inputs[i], inputs_2[i]))
+        
 
     # 1. Apply H^N to the input quibuts
     for i in range(n):
         circuit.append(cirq.H(inputs[i]))
+    
+        if error_correction:
+            circuit.append(cirq.H(inputs_1[i]))
+            circuit.append(cirq.H(inputs_2[i]))
 
     # 2. Add U_f
-    oracle(inputs, outputs, s, circuit, n, swap_time=swap_time, not_time=not_time)
+    oracle(inputs, outputs, s, circuit, n, swap_time=swap_time, not_time=not_time, other_inputs = (inputs_1, inputs_2))
 
     # 3. Apply H^N to the inputs qubits
     for i in range(n):
         circuit.append(cirq.H(inputs[i]))
+        if error_correction:
+            circuit.append(cirq.H(inputs_1[i]))
+            circuit.append(cirq.H(inputs_2[i]))
+    
+    if error_correction:
+        for i in range(n):
+            circuit.append(cirq.CNOT(inputs[i], inputs_1[i]))
+            circuit.append(cirq.CNOT(inputs[i], inputs_2[i]))
+            circuit.append(cirq.TOFFOLI(inputs_2[i], inputs_1[i], inputs[i]))
 
     # 4. Measurement
     circuit.append(cirq.measure(*inputs, key='result'))
@@ -141,23 +173,21 @@ def make_circuit(s, n, not_time, swap_time, m, tolerance):
     #print(circuit)
     return circuit
 
-def make_a_run_google(n, not_time, swap_time, m, tolerance, solver = True):
+def make_a_run_google(s, n, not_time, swap_time, m, tolerance, solver = True, error_correction = False):
 
     solutions = []
-    s = np.random.randint(2, size=n)
 
-    circuit = make_circuit(s, n, not_time, swap_time, m, tolerance)
+    circuit = make_circuit(s, n, not_time, swap_time, m, tolerance, error_correction)
 
     jobid = send_to_google(circuit)
-    print(lookup_google())
+    return jobid
 
 
-def make_a_run(n, not_time, swap_time, m, tolerance, solver = True):
+def make_a_run(s, n, not_time, swap_time, m, tolerance, solver = True, error_correction = False):
 
     solutions = []
-    s = np.random.randint(2, size=n)
 
-    circuit = make_circuit(s, n, not_time, swap_time, m, tolerance)
+    circuit = make_circuit(s, n, not_time, swap_time, m, tolerance, error_correction)
 
     #print("Randomly constructed circuit:")
     #print(circuit)
@@ -191,78 +221,45 @@ def make_a_run(n, not_time, swap_time, m, tolerance, solver = True):
     else:
         return s, None, simulation_time / m, linear_solver_time / m, circuit
 
-from pprint  import pprint
-data = lookup_google()
-pprint(list(data["Jobs by student_id"]["005271406"]["5509413305581568"].keys()))
-pprint(data["Jobs by student_id"]["005271406"]["5509413305581568"]["done"])
-print(type(data))
-assert(0)
 
 '''
 Parameters
 '''
-n = 6
-not_time = 5 # Define the complexity of the Uf
-swap_time = 5 # Define the complexity of the Uf
-m = 100  # Trail time
-tolerance = 1e-10 # Smaller the value, more accurate each trial
-
-make_a_run_google(n, not_time, swap_time, m, tolerance)
-
-
-
-
-assert(0)
-
-#1. First Verify our Solution is correct
-
-print("\n\n############ Verifying the correcness ############")
-n = 6
-not_time = 5 # Define the complexity of the Uf
-swap_time = 5 # Define the complexity of the Uf
-m = 100  # Trail time
-tolerance = 1e-10 # Smaller the value, more accurate each trial
-
-s, solution, simulation_time, linear_solver_time, circuit = make_a_run(n, not_time, swap_time, m, tolerance)
-print("Random Generated s:", s)
-print("Found Solution :", solution[0])
-print("Circuit:")
-print(circuit)
-
-#2. Excution time with different U_f
-print("\n\n############ Testing execution time of different f ############")
-import matplotlib.pyplot as plt
-
-n = 6
-m = 50  # Trail time
-tolerance = 1e-10 # Smaller the value, more accurate each trial
-range_op = 26
-
-simulation_time_uf = []
-for i in range(1, range_op):
-    s, solution, simulation_time, linear_solver_time, circuit = make_a_run(n, i, i, m, tolerance, solver = False)
-    simulation_time_uf.append(simulation_time)
-plt.figure()
-plt.plot([i for i in range(1, range_op)], simulation_time_uf)
-plt.xlabel('Complexity of Uf')
-plt.ylabel('Simulation Time')
-plt.savefig('Uf.png')
-
-#3. Excution time with different n
-print("\n\n############ Testing execution time of different n ############")
-m = 1  # Trail time
+n = 2
 not_time = 0 # Define the complexity of the Uf
 swap_time = 0 # Define the complexity of the Uf
+m = 100  # Trail time
 tolerance = 1e-10 # Smaller the value, more accurate each trial
-range_n = 15
 
-simulation_time_n = []
-for i in range(1, range_n):
-    print(i)
-    s, solution, simulation_time, linear_solver_time, circuit = make_a_run(i, not_time, swap_time, m, tolerance, solver = False)
-    simulation_time_n.append(simulation_time)
-plt.figure()
-plt.plot([i for i in range(1, range_n)], [math.log(i) for i in simulation_time_n])
-plt.xlabel('N')
-plt.ylabel('Simulation Time (Log)')
-plt.savefig('n.png')
+random.seed(0)
+numpy.random.seed(0)
+s = np.random.randint(2, size=n)
+print("Generated Random s: ", s)
+
+#1. Simulation
+s, solution, simulation_time, linear_solver_time, circuit = make_a_run(s, n, not_time, swap_time, m, tolerance)
+print("Found Solution (Simulated):", solution[0])
+
+#2. Simulation with error correction
+s, solution, simulation_time, linear_solver_time, circuit = make_a_run(s, n, not_time, swap_time, m, tolerance, error_correction=True)
+print("Found Solution (Simulated, error correction):", solution[0])
+
+
+# 2. Without error correction
+jod_id = make_a_run_google(s, n, not_time, swap_time, m, tolerance)
+
+# 3. With error correction
+jod_id_with_error_correction = make_a_run_google(s, n, not_time, swap_time, m, tolerance, error_correction=True)
+
+print(jod_id)
+print(jod_id_with_error_correction)
+import json
+with open("simon_history_record.json", "w") as f:
+    json.dump(
+        {
+            "s": str(s),
+            "jod_id": str(jod_id),
+            "jod_id_with_erro_correction": str(jod_id_with_error_correction)
+        },
+        f
+    )

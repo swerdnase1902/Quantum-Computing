@@ -8,6 +8,7 @@ from pprint import pprint
 from tqdm import tqdm
 import math
 import requests
+import numpy
 from qiskit import QuantumCircuit, execute, Aer
 from qiskit.visualization import plot_histogram
 from qiskit import IBMQ, assemble, transpile
@@ -30,10 +31,13 @@ This is how we create the oracle:
     g(x) != g(y), iff x != y
    This could be done as a random permutation function.
 '''
-def oracle(inputs, outputs, s, circuit, n, swap_time = 0, not_time = 0): 
+def oracle(inputs, outputs, s, circuit, n, swap_time = 0, not_time = 0, other_inputs = None): 
     # 1
     for index in range(len(inputs)):
-        circuit.append(cirq.CNOT(inputs[index], outputs[index])) # Becuase outputs_quibuts are all zeros, we can do the copy with CNOT
+        circuit.append(cirq.CNOT(inputs[index], outputs[index]))  # Becuase outputs_quibuts are all zeros, we can do the copy with CNOT
+        if other_inputs[0] is not None:
+            circuit.append(cirq.CNOT(other_inputs[0][index], outputs[index]))
+            circuit.append(cirq.CNOT(other_inputs[1][index], outputs[index]))
 
     # 2
     all_non_zero_indexes_of_s = []
@@ -46,7 +50,10 @@ def oracle(inputs, outputs, s, circuit, n, swap_time = 0, not_time = 0):
         for i in range(len(s)):
             if s[i]:
                 circuit.append(cirq.CNOT(inputs[chosen_index], outputs[i]))
-    
+                if other_inputs[0] is not None:
+                    circuit.append(cirq.CNOT(other_inputs[0][chosen_index], outputs[i]))
+                    circuit.append(cirq.CNOT(other_inputs[1][chosen_index], outputs[i]))
+            
     # 3
     # The random permutation circuits could be very complex or very easy based on our given parameters.
     # We implement the random permutation circuit with a bunch of SWAP and NOT gates.
@@ -89,49 +96,13 @@ def load_credential():
     return "9da9d4d05ae90bc8114510e18006eb1fc5435fb057c441ca9be7a83a59c4b864c16b1e51a91efc772e1b000c655a84a267708418bea1852a129af8fdfad31e68"
 
 
-def make_circuit(s, n, not_time, swap_time, m, tolerance):
-
-    # Initializing the qubits
-    inputs = [cirq.GridQubit(i, 0) for i in range(n)]  # inputs x
-    outputs = [ cirq.GridQubit(i + n, 0) for i in range(n)]
-    circuit = cirq.Circuit()
-
-    # 1. Apply H^N to the input quibuts
-    for i in range(n):
-        circuit.append(cirq.H(inputs[i]))
-
-    # 2. Add U_f
-    oracle(inputs, outputs, s, circuit, n, swap_time=swap_time, not_time=not_time)
-
-    # 3. Apply H^N to the inputs qubits
-    for i in range(n):
-        circuit.append(cirq.H(inputs[i]))
-
-    # 4. Measurement
-    circuit.append(cirq.measure(*inputs, key='result'))
-
-    #print("Randomly constructed circuit:")
-    #print(circuit)
-    return circuit
-
-def make_a_run_ibm(n, not_time, swap_time, m, tolerance, solver = True, repetitions = 10):
-
-    solutions = []
-    s = np.random.randint(2, size=n)
-
-    circuit = make_circuit(s, n, not_time, swap_time, m, tolerance)
-
-    jobid = send_to_ibm(circuit, repetitions)
-
-
-
 def send_to_ibm(circuit: cirq.Circuit, repetitions):
     circ = circuit
     qbits = circ.all_qubits()
 
     provider = IBMQ.load_account()
     # backend = provider.backends.backend_name
-    backend = provider.backends.ibmq_athens
+    backend = provider.backends.ibmq_16_melbourne
 
     def cirq_to_qiskit(circuit: 'cirq.Circuit', qubits: Tuple['cirq.Qid', ...]):
         # here you go: https://quantumcomputing.stackexchange.com/questions/14164/can-i-run-cirq-on-ibmq
@@ -152,7 +123,137 @@ def send_to_ibm(circuit: cirq.Circuit, repetitions):
     delayed_result = backend.retrieve_job(job.job_id()).result()
     delayed_counts = delayed_result.get_counts()
     return delayed_counts
-from pprint  import pprint
+
+def make_circuit(s, n, not_time, swap_time, m, tolerance, error_correction = False):
+
+    # Initializing the qubits
+    inputs = [cirq.GridQubit(i, 0) for i in range(n)]  # inputs x
+    outputs = [cirq.GridQubit(i + n, 0) for i in range(n)]
+    if error_correction:
+        inputs_1 = [cirq.GridQubit(i + 2 * n, 0) for i in range(n)]
+        inputs_2 = [cirq.GridQubit(i + 3 * n, 0) for i in range(n)]
+    else:
+        inputs_1 = None
+        inputs_2 = None
+    circuit = cirq.Circuit()
+
+    if error_correction:
+        for i in range(n):
+            circuit.append(cirq.CNOT(inputs[i], inputs_1[i]))
+            circuit.append(cirq.CNOT(inputs[i], inputs_2[i]))
+        
+
+    # 1. Apply H^N to the input quibuts
+    for i in range(n):
+        circuit.append(cirq.H(inputs[i]))
+    
+        if error_correction:
+            circuit.append(cirq.H(inputs_1[i]))
+            circuit.append(cirq.H(inputs_2[i]))
+
+    # 2. Add U_f
+    oracle(inputs, outputs, s, circuit, n, swap_time=swap_time, not_time=not_time, other_inputs = (inputs_1, inputs_2))
+
+    # 3. Apply H^N to the inputs qubits
+    for i in range(n):
+        circuit.append(cirq.H(inputs[i]))
+        if error_correction:
+            circuit.append(cirq.H(inputs_1[i]))
+            circuit.append(cirq.H(inputs_2[i]))
+    
+    if error_correction:
+        for i in range(n):
+            circuit.append(cirq.CNOT(inputs[i], inputs_1[i]))
+            circuit.append(cirq.CNOT(inputs[i], inputs_2[i]))
+            circuit.append(cirq.TOFFOLI(inputs_2[i], inputs_1[i], inputs[i]))
+
+    # 4. Measurement
+    circuit.append(cirq.measure(*inputs, key='result'))
+
+    #print("Randomly constructed circuit:")
+    #print(circuit)
+    return circuit
+
+def make_a_run_ibm(s, n, not_time, swap_time, m, tolerance, solver = True, error_correction = False, repetitions = 10):
+
+    solutions = []
+
+    circuit = make_circuit(s, n, not_time, swap_time, m, tolerance, error_correction)
+
+    delayed_counts = send_to_ibm(circuit ,repetitions=repetitions)
+    return delayed_counts
+
+
+def make_a_run(s, n, not_time, swap_time, m, tolerance, solver = True, error_correction = False):
+
+    solutions = []
+
+    circuit = make_circuit(s, n, not_time, swap_time, m, tolerance, error_correction)
+
+    #print("Randomly constructed circuit:")
+    #print(circuit)
+
+    '''
+    Start trial
+    '''
+
+    simulation_time = 0.0
+    linear_solver_time = 0.0
+
+    for _ in range(m):
+        start_time = time.time()
+
+        equations = [cirq.Simulator().run(circuit).measurements['result'][0] for _ in range(n - 1)]  # Get n equations
+        
+        simulation_time += time.time() - start_time
+
+        if solver:
+            start_time = time.time()
+            # Solve the n equations given a matrix
+            flag, solution = linear_solver(equations, tolerance)
+            linear_solver_time += time.time() - start_time
+            if flag:
+                solutions.append(str(solution))
+
+    freqs = Counter(solutions)
+    #print('Found solution: {}'.format(freqs.most_common(1)[0]))
+    if solver:
+        return s, freqs.most_common(1)[0], simulation_time / m, linear_solver_time / m, circuit
+    else:
+        return s, None, simulation_time / m, linear_solver_time / m, circuit
+
+def chunks(lst, n):
+    """Yield successive n-sized chunks from lst."""
+    for i in range(0, len(lst), n):
+        yield lst[i:i + n]
+
+def solve(results, n):
+    new_results = []
+    for key, value in results.items():
+        qubit = np.array([int(i) for i in key])
+        print(qubit.shape)
+        for i in range(value):
+            new_results.append(qubit)
+    results = list(chunks(new_results, n - 1))
+    solutions = []
+    for i in range(len(results)):
+        equations = results[i]
+        flag, solution = linear_solver(equations, tolerance=1e-6)
+        if flag:
+                solutions.append(str(solution))
+    freqs = Counter(solutions)
+    try:
+        return freqs.most_common(1)[0]
+    except:
+        return [None]
+
+'''from pprint  import pprint
+data = lookup_google()
+pprint(list(data["Jobs by student_id"]["005271406"]["5509413305581568"].keys()))
+pprint(data["Jobs by student_id"]["005271406"]["5509413305581568"]["message"])
+print(type(data))
+print()
+assert(0)'''
 
 '''
 Parameters
@@ -163,63 +264,29 @@ swap_time = 0 # Define the complexity of the Uf
 m = 100  # Trail time
 tolerance = 1e-10 # Smaller the value, more accurate each trial
 
-
-apikey = load_credential()
-IBMQ.save_account(apikey)
-make_a_run_ibm(n, not_time, swap_time, m, tolerance, repetitions=1)
+print(solve({'00': 1}, n))
+#assert(0)
 
 
-assert(0)
+random.seed(0)
+numpy.random.seed(0)
+s = np.random.randint(2, size=n)
+print("Generated Random s: ", s)
 
-#1. First Verify our Solution is correct
+#1. Simulation
+s, solution, simulation_time, linear_solver_time, circuit = make_a_run(s, n, not_time, swap_time, m, tolerance)
+print("Found Solution (Simulated):", solution[0])
 
-print("\n\n############ Verifying the correcness ############")
-n = 6
-not_time = 5 # Define the complexity of the Uf
-swap_time = 5 # Define the complexity of the Uf
-m = 100  # Trail time
-tolerance = 1e-10 # Smaller the value, more accurate each trial
+#2. Simulation with error correction
+s, solution, simulation_time, linear_solver_time, circuit = make_a_run(s, n, not_time, swap_time, m, tolerance, error_correction=True)
+print("Found Solution (Simulated, error correction):", solution[0])
 
-s, solution, simulation_time, linear_solver_time, circuit = make_a_run(n, not_time, swap_time, m, tolerance)
-print("Random Generated s:", s)
-print("Found Solution :", solution[0])
-print("Circuit:")
-print(circuit)
+# 3. Without error correction
+results = make_a_run_ibm(s, n, not_time, swap_time, m, tolerance, repetitions=50 * (n-1))
+solution = solve(results, n)
+print("Found Solution (IBM):", solution[0])
 
-#2. Excution time with different U_f
-print("\n\n############ Testing execution time of different f ############")
-import matplotlib.pyplot as plt
-
-n = 6
-m = 50  # Trail time
-tolerance = 1e-10 # Smaller the value, more accurate each trial
-range_op = 26
-
-simulation_time_uf = []
-for i in range(1, range_op):
-    s, solution, simulation_time, linear_solver_time, circuit = make_a_run(n, i, i, m, tolerance, solver = False)
-    simulation_time_uf.append(simulation_time)
-plt.figure()
-plt.plot([i for i in range(1, range_op)], simulation_time_uf)
-plt.xlabel('Complexity of Uf')
-plt.ylabel('Simulation Time')
-plt.savefig('Uf.png')
-
-#3. Excution time with different n
-print("\n\n############ Testing execution time of different n ############")
-m = 1  # Trail time
-not_time = 0 # Define the complexity of the Uf
-swap_time = 0 # Define the complexity of the Uf
-tolerance = 1e-10 # Smaller the value, more accurate each trial
-range_n = 15
-
-simulation_time_n = []
-for i in range(1, range_n):
-    print(i)
-    s, solution, simulation_time, linear_solver_time, circuit = make_a_run(i, not_time, swap_time, m, tolerance, solver = False)
-    simulation_time_n.append(simulation_time)
-plt.figure()
-plt.plot([i for i in range(1, range_n)], [math.log(i) for i in simulation_time_n])
-plt.xlabel('N')
-plt.ylabel('Simulation Time (Log)')
-plt.savefig('n.png')
+# 4. With error correction
+results = make_a_run_ibm(s, n, not_time, swap_time, m, tolerance, error_correction = True, repetitions=50 * (n-1))
+solution = solve(results, n)
+print("Found Solution (IBM, error correction):", solution[0])
