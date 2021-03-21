@@ -70,14 +70,15 @@ def make_grover_curcuit_old(n, Z_f) -> cirq.Circuit:
         Z_0_gate.on(*qubits)] + [cirq.H(q) for q in
                                  qubits] + [cirq.measure(*qubits, key='result')]
     """
-    Z_0_gate = cirq.ops.MatrixGate(Z_0)#OracleGate(n, Z_0, 'Z_0')
-    Z_f_gate = cirq.ops.MatrixGate(Z_f)#OracleGate(n, Z_f, 'Z_f')
+    Z_0_gate = cirq.ops.MatrixGate(Z_0)  # OracleGate(n, Z_0, 'Z_0')
+    Z_f_gate = cirq.ops.MatrixGate(Z_f)  # OracleGate(n, Z_f, 'Z_f')
     ops = [cirq.H(q) for q in qubits] + [Z_f_gate(*qubits)] + [cirq.H(q) for q in qubits] + [
         Z_0_gate(*qubits)] + [cirq.H(q) for q in
-                                 qubits] + [cirq.measure(*qubits, key='result')]
+                              qubits] + [cirq.measure(*qubits, key='result')]
     grover_circuit = cirq.Circuit(ops)
     return grover_circuit
     print(grover_circuit)
+
 
 def make_grover_circuit(n, f) -> cirq.Circuit:
     total_qubits = cirq.LineQubit.range(n + 1)
@@ -112,6 +113,7 @@ def make_grover_circuit(n, f) -> cirq.Circuit:
     final_circuit = cirq.Circuit(ops)
     # print(final_circuit)
     return final_circuit
+
 
 def load_credential():
     # will return (ucla_email, student_id)
@@ -205,6 +207,7 @@ def run_benchmark():
     plt.ylabel('Grover runtimes (seconds)')
     plt.show()
 
+
 def send_to_google(circuit: cirq.Circuit, repetitions=100):
     send_url = 'http://quant-edu-scalability-tools.wl.r.appspot.com/send'
     json_circuit = cirq.to_json(circuit)
@@ -218,6 +221,7 @@ def send_to_google(circuit: cirq.Circuit, repetitions=100):
     response = requests.post(url=send_url, json=job_payload)
     return response
     print(response.text)
+
 
 def run_custom_input(n, needle, google=False):
     print('Will be running Grover algorithm on your input f(x) that takes {} bits with f({})=1'.format(n, needle))
@@ -233,7 +237,7 @@ def run_custom_input(n, needle, google=False):
         print('Just sent your circuit to Google, below is the response.text')
         print(response.text)
         # parse job_id
-        jobid = response.text[response.text.find(':')+1:].strip()
+        jobid = response.text[response.text.find(':') + 1:].strip()
         return jobid
 
     simulator = cirq.Simulator()
@@ -245,9 +249,10 @@ def run_custom_input(n, needle, google=False):
         'If Grover circuit did it\'s job, then the most occurring key in the above result should be the needle {}'.format(
             needle))
 
+
 def test_hardcoded_error_correct_on_google():
     n, needle = 1, 1
-    qubits = cirq.LineQubit.range(3*n)
+    qubits = cirq.LineQubit.range(3 * n)
 
     Z_0_gate = cirq.Z
     Z_f_gate = cirq.Z
@@ -258,7 +263,7 @@ def test_hardcoded_error_correct_on_google():
     # Grover part
     ops += [cirq.H(q) for q in qubits] + [Z_f_gate.on(q) for q in qubits] + [cirq.H(q) for q in qubits] + [
         Z_0_gate.on(q) for q in qubits] + [cirq.H(q) for q in
-                                 qubits]
+                                           qubits]
 
     ops += [cirq.CNOT(qubits[0], qubits[1])]
     ops += [cirq.CNOT(qubits[0], qubits[2])]
@@ -267,14 +272,12 @@ def test_hardcoded_error_correct_on_google():
     ops += [cirq.measure(*qubits, key='result')]
     grover_circuit = cirq.Circuit(ops)
 
-
     response = send_to_google(grover_circuit)
     print('Just sent your circuit to Google, below is the response.text')
     print(response.text)
     # parse job_id
     jobid = response.text[response.text.find(':') + 1:].strip()
     return jobid
-
 
     # Test the above code locally on simulator
     simulator = cirq.Simulator()
@@ -285,6 +288,7 @@ def test_hardcoded_error_correct_on_google():
     print(
         'If Grover circuit did it\'s job, then the most occurring key in the above result should be the needle {}'.format(
             needle))
+
 
 def lookup_google(jobid=None):
     email, uid = load_credential()
@@ -299,6 +303,8 @@ def lookup_google(jobid=None):
     response = requests.get(lookup_url, params=lookup_ids)
     data = response.json()
     return data
+
+
 if __name__ == '__main__':
 
     argparser = argparse.ArgumentParser(description='Demonstration of the Grover algorithm')
@@ -313,9 +319,19 @@ if __name__ == '__main__':
                                                     'expecting')
     argparser.add_argument('-g', '--google', help='Run on Google\'s quantum computer', action='store_true',
                            default=False)
-    argparser.add_argument('-e', '--error_correct', help='If testing on Google, demo error correction of bit-flip using a hard-coded n=1 qubit example', action='store_true',
+    argparser.add_argument('-e', '--error_correct',
+                           help='If testing on Google, demo error correction of bit-flip using a hard-coded n=1 qubit example',
+                           action='store_true',
+                           default=False)
+    argparser.add_argument('-l', '--lookup_google',
+                           help='Do NOT run any quantum algorithm, just lookup the results on Google using UID and exit',
+                           action='store_true',
                            default=False)
     args = vars(argparser.parse_args())
+
+    if args['lookup_google']:
+        lookup_google()
+        exit(0)
 
     if args['custom_function']:
         n = int(args['num_bits'])
