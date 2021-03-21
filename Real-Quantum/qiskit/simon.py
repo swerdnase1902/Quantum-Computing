@@ -120,9 +120,9 @@ def send_to_ibm(circuit: cirq.Circuit, repetitions):
     job = backend.run(qobj)
     result = job.result()
     counts = result.get_counts()
-    delayed_result = backend.retrieve_job(job.job_id()).result()
-    delayed_counts = delayed_result.get_counts()
-    return delayed_counts
+    #delayed_result = backend.retrieve_job(job.job_id()).result()
+    #delayed_counts = delayed_result.get_counts()
+    return counts
 
 def make_circuit(s, n, not_time, swap_time, m, tolerance, error_correction = False):
 

@@ -169,40 +169,43 @@ class QAOASolver:
     def _make_qaoa_circuit(self, beta, gamma):
 
         # Initializing the qubits
-        # We are hardcoding the example (x0 AND (x0 OR x1)) in lecture with 2 clauses. Since the Sep requires 1 extra helper qubits, we set n=3 here
-        n = 3
+        # We are hardcoding the example (x0 OR x1) in lecture with 2 clauses. Following https://piazza.com/class/kjky6kvh4v21rm?cid=385, we need four qubits
+        n = 4
+        actual_n = 2
 
         inputs = [cirq.GridQubit(i, 0) for i in range(n)]
         circuit = cirq.Circuit()
 
         # 1. Apply H^N to the input quibuts, don't apply to helper qubit
-        for i in range(n-1):
+        for i in range(actual_n):
             circuit.append(cirq.H(inputs[i]))
+
+        
         # helper qubit should be set to 1
         circuit.append(cirq.X(inputs[-1]))
 
-        # 2. Add Sep(gamma)
-        # TODO: Harold
-        circuit#.append(???)
+        for i in range(actual_n):
+            circuit.append(cirq.X(inputs[i]))
+        circuit.append(cirq.TOFFOLI(inputs[0], inputs[1], inputs[3]))
 
+        circuit.append(cirq.X(inputs[3]))
+
+        circuit.append(cirq.CZPowGate(exponent=-4)(inputs[3], inputs[2]))
+        
+        circuit.append(cirq.TOFFOLI(inputs[0], inputs[1], inputs[3]))
 
         # 3. Add Mix(Beta) We are hardcoding Mixer with beta=pi/2. Make sure don't touch the helper qubit
         # circuit.append(cirq.ops.MatrixGate(self._Mix(beta))(*inputs))
-        for i in range(n-1):
+        for i in range(actual_n):
             circuit.append(cirq.X(inputs[i]))
 
         # 4. Measurement. Don't measure the helper qubit
-        circuit.append(cirq.measure(*(inputs[:-1]), key='result'))
+        circuit.append(cirq.measure(*(inputs[:actual_n]), key='result'))
 
         return circuit
 
-        '''qubits = cirq.LineQubit.range(self.n)
-        ops = [cirq.H(q) for q in qubits] + [cirq.measure(*qubits, key='result')]
-        qaoa_circuit = cirq.Circuit(ops)
-        return qaoa_circuit'''
-
     def solve(self):
-        gamma = random.uniform(0, 2 * math.pi)
+        gamma = np.pi / 4
         # Hardcode beta = pi/2
         beta = np.pi / 2  # random.uniform(0, math.pi)
         circuit = self._make_qaoa_circuit(beta, gamma)
@@ -213,86 +216,30 @@ class QAOASolver:
         # parse job_id
         jobid = response.text[response.text.find(':') + 1:].strip()
         return jobid
+    
 
-        # simulator = cirq.Simulator()
-        # result = simulator.run(circuit)
-        # z = result.measurements['result']
-
-# def test_correctness():
-#     from tqdm import tqdm
-#     errors = []
-#     for n in range(3, 8):
-#         for m in range(2, n * 3):
-#             my_max2sat = Max2SAT(n, m, 2)
-#             solver = QAOASolver(my_max2sat, num_tries=10)
-#             result, num_clause = solver.solve()
-#
-#             errors.append(abs(my_max2sat.exact_solve() - num_clause))
-#     errors = np.array(errors)
-#     print("Out of {} random test cases, the algorithm is completely correct for {} of the cases.".format(len(errors),
-#                                                                                                          int(sum((
-#                                                                                                                              errors == 0)))))
-#     print("Average difference with respect to the correct answer {}".format(float(sum(errors) / errors.shape[0])))
-
-# def run_benchmark():
-#     max_n = 14
-#     print('We will study how n, the number of variables, affects the execution time of QAOA')
-#     print('We will vary n from {} to {}'.format(2, max_n))
-#     print('Begin benchmarking:')
-#     n_list = list()
-#     exec_times = list()
-#     for n in range(2, max_n):
-#         m = 2 * n
-#         print('Testing n={} and m={}'.format(n, m))
-#         start = time.time()
-#         max2sat = Max2SAT(n, m, 2)
-#         print('The Max2SAT instance that we want to solve by QAQA is {}'.format(max2sat))
-#         solver = QAOASolver(max2sat, num_tries=1)
-#         result, num_clause = solver.solve()
-#         end = time.time()
-#         elapsed = end - start
-#         print('It took {} seconds for QAQA to solve'.format(elapsed))
-#         n_list.append(n)
-#         exec_times.append(elapsed)
-#         print("")
-#
-#     print('Here\'s the graph that tells you how n and execution times relate')
-#     plt.scatter(n_list, exec_times)
-#     plt.plot(n_list, exec_times)
-#     plt.xlabel('n: number of variables')
-#     plt.ylabel('execution time')
-#     plt.title('Number of Variables vs Execution Time')
-#     plt.show()
-
+    def solve_normal(self):
+        history = list()
+        for trial in range(self.num_tries):
+            gamma = np.pi / 4
+            # Hardcode beta = pi/2
+            beta = np.pi / 2  # random.uniform(0, math.pi)
+            circuit = self._make_qaoa_circuit(beta, gamma)
+            simulator = cirq.Simulator()
+            result = simulator.run(circuit)
+            z = result.measurements['result']
+            history.append((z, self.max2sat.Count(z)))
+        # Pick the measurement z that maximizes Count(z)
+        max_z, num_clause = max(history, key=lambda x: x[1])
+        return max_z, num_clause
 
 def run_hardcoded_input_on_google():
-    # TODO: Harold hardcode my_max2sat to encode (x0 AND (x0 OR x1))
-    my_max2sat = Max2SAT(1, 2, 2, '')
-    print('We will run QAQA with hardcoded input (x0 AND (x0 OR x1)) on Google')
+    my_max2sat = Max2SAT(2, 1, 2, "V0 OR V1")
+    print('We will run QAQA with hardcoded input (x0 OR x1) on Google')
     solver = QAOASolver(my_max2sat, num_tries=10)
+    print("Normal solver : ", solver.solve_normal()[1])
     solver.solve()
 
-    # print("The variable assignment we found: ")
-    # for index, i in enumerate(result[0]):
-    #     print("  v_{} : {}".format(index, i))
-    # print("Max number of clause that can be satisfied:", num_clause)
-
-# def test_correctness_wrapper():
-#     print("##################### A Random Test Run #####################")
-#     my_max2sat = Max2SAT(6, 50, 2)
-#     print(my_max2sat)
-#     solver = QAOASolver(my_max2sat, num_tries=10)
-#     result, num_clause = solver.solve()
-#     print("\nThe variable assignment we found: ")
-#     for index, i in enumerate(result[0]):
-#         print("  v_{} : {}".format(index, i))
-#     print("")
-#     print("Max number of clause that can be satisfied:", num_clause)
-#     print("Exact solver:", my_max2sat.exact_solve())
-#
-#     print('\n\n\n')
-#     print("##################### Testing Correctness #####################")
-#     test_correctness()
 
 if __name__ == '__main__':
 
