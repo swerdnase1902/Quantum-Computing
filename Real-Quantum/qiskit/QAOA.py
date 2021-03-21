@@ -219,9 +219,24 @@ class QAOASolver:
         circuit = self._make_qaoa_circuit(beta, gamma)
 
         restuls = send_to_ibm(circuit ,repetitions=50)
+        
         history = list()
         for key, value in restuls.items():
             z = np.array([int(i) for i in key])
+            history.append((z, self.max2sat.Count(z)))
+        max_z, num_clause = max(history, key=lambda x: x[1])
+        return max_z, num_clause
+    
+    def solve_result(self):
+        restuls = {
+            "11": 20,
+            "10": 12,
+            "00": 12,
+            "01": 6
+        }
+        history = list()
+        for key, value in restuls.items():
+            z = [np.array([int(i) for i in key])]
             history.append((z, self.max2sat.Count(z)))
         max_z, num_clause = max(history, key=lambda x: x[1])
         return max_z, num_clause
@@ -246,7 +261,8 @@ def run_hardcoded_input_on_ibm():
     print('We will run QAQA with hardcoded input (x0 OR x1) on IBM')
     solver = QAOASolver(my_max2sat, num_tries=10)
     print("Normal solver : ", solver.solve_normal()[1])
-    solver.solve()
+    #solver.solve()
+    print("IBM", solver.solve())
 
 
 if __name__ == '__main__':

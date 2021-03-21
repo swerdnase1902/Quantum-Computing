@@ -264,14 +264,14 @@ swap_time = 0 # Define the complexity of the Uf
 m = 100  # Trail time
 tolerance = 1e-10 # Smaller the value, more accurate each trial
 
-print(solve({'00': 1}, n))
-#assert(0)
 
 
 random.seed(0)
 numpy.random.seed(0)
 s = np.random.randint(2, size=n)
 print("Generated Random s: ", s)
+#print(solve({'00': 1}, n))
+#assert(0)
 
 #1. Simulation
 s, solution, simulation_time, linear_solver_time, circuit = make_a_run(s, n, not_time, swap_time, m, tolerance)
@@ -284,9 +284,9 @@ print("Found Solution (Simulated, error correction):", solution[0])
 # 3. Without error correction
 results = make_a_run_ibm(s, n, not_time, swap_time, m, tolerance, repetitions=50 * (n-1))
 solution = solve(results, n)
-print("Found Solution (IBM):", solution[0])
+print("Found Solution (IBM):", solution[0]) # None
 
 # 4. With error correction
 results = make_a_run_ibm(s, n, not_time, swap_time, m, tolerance, error_correction = True, repetitions=50 * (n-1))
 solution = solve(results, n)
-print("Found Solution (IBM, error correction):", solution[0])
+print("Found Solution (IBM, error correction):", solution[0]) #1 0
