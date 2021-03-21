@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 
 import random
 import cirq
-from cirq import H, X, CNOT, measure
+from cirq import H, X, CNOT, measure, TOFFOLI
 import requests
 
 import qiskit
@@ -50,6 +50,59 @@ def make_circuit(qbts, oracle):
     for i, qbt in enumerate(qbts[:-1]):
         m.append(measure(qbt, key=f'result-{i}'))    
     c.append(m)
+    return c
+
+def make_circuit_error_correction(qbts):
+    """
+    hard coded for the case when n = 1 and f has a = 0 and b = 0
+    Input:
+    qbts -- qubits in the circuit;
+    oracle -- the circuit implementation of the black-box function f;
+    Output:
+    c -- circuit that implements the Deutsch-Jozsa algorithm
+    """        
+    assert len(qbts) == 6
+    c = cirq.Circuit()
+    c.append([CNOT(qbts[0], qbts[2])])
+    c.append([CNOT(qbts[0], qbts[4])])
+
+    # bernstein part
+    c.append([X(qbts[1]), X(qbts[3]), X(qbts[5])])
+    c.append([H(qbt) for qbt in qbts])
+    c.append([H(qbts[0]), H(qbts[2]), H(qbts[4])])    
+
+    c.append([CNOT(qbts[0], qbts[2])])
+    c.append([CNOT(qbts[0], qbts[4])])
+    c.append([TOFFOLI(qbts[4], qbts[2], qbts[0])])
+
+    c.append(measure(qbts[0], key='result'))
+    return c
+
+
+def make_circuit_error_correction(qbts):
+    """
+    hard coded for the case when n = 1 and f is a constant function
+    Input:
+    qbts -- qubits in the circuit;
+    oracle -- the circuit implementation of the black-box function f;
+    Output:
+    c -- circuit that implements the Deutsch-Jozsa algorithm
+    """        
+    assert len(qbts) == 6
+    c = cirq.Circuit()
+    c.append([CNOT(qbts[0], qbts[2])])
+    c.append([CNOT(qbts[0], qbts[4])])
+
+    # deutsch part
+    c.append([X(qbts[1]), X(qbts[3]), X(qbts[5])])
+    c.append([H(qbt) for qbt in qbts])
+    c.append([H(qbts[0]), H(qbts[2]), H(qbts[4])])    
+
+    c.append([CNOT(qbts[0], qbts[2])])
+    c.append([CNOT(qbts[0], qbts[4])])
+    c.append([TOFFOLI(qbts[4], qbts[2], qbts[0])])
+
+    c.append(measure(qbts[0], key='result'))
     return c
 
 
@@ -107,32 +160,61 @@ if __name__ == '__main__':
     argparser.add_argument(
         '-n', '--num_bits', 
         help='set the number of bits that f(x) is expecting'
-    )    
+    )
+    argparser.add_argument(
+        '-c', '--correction', help='Do error correction', 
+        action='store_true', default=False
+    )
+    argparser.add_argument(
+        '-s', '--simulation', help='Do simulation or run on real machine', 
+        action='store_true', default=False
+    )
 
     args = vars(argparser.parse_args())    
     n = int(args['num_bits'])
+    correction = bool(args['correction'])
+    simulation = bool(args['simulation'])
 
-    apikey = load_credential()
-    IBMQ.save_account(apikey)
-    num_shots = 1
-    provider = IBMQ.load_account()
-    backend = provider.backend.ibmq_athens
-    # backend = least_busy(provider.backends(filters=lambda x: x.configuration().n_qubits >= (n+1) and not x.configuration().simulator and x.status().operational==True))
+    if not correction:
+        qbts = cirq.LineQubit.range(n + 1)
+        oracle = make_oracle(qbts, n, visual = True)
+        circuit = make_circuit(qbts, oracle)
+    else:
+        print("Doing error correction")
+        qbts = cirq.LineQubit.range(3 * (n + 1))
+        circuit = make_circuit_error_correction(qbts)
 
-    qbts = cirq.LineQubit.range(n + 1)
-    oracle = make_oracle(qbts, n, visual = True)
-    circuit = make_circuit(qbts, oracle)    
-    qasm_circuit = circuit.to_qasm()
-    circuit = qiskit.circuit.QuantumCircuit.from_qasm_str(qasm_circuit)
+    if not simulation:
+        apikey = load_credential()
+        IBMQ.save_account(apikey)
+        num_shots = 50
+        provider = IBMQ.load_account()
+        if not correction:
+            backend = provider.backend.ibmq_athens
+        else:
+            backend = provider.backends.ibmq_16_melbourne
+    
+        print(f"Running Bernstein-Vazirani with n = {n}, num_shots = {num_shots}")
 
-    transpiled = transpile(circuit, backend)
+        qasm_circuit = circuit.to_qasm()
+        circuit = qiskit.circuit.QuantumCircuit.from_qasm_str(qasm_circuit)
 
-    qobj = assemble(transpiled, backend, shots=num_shots)
-    job = backend.run(qobj)
-    print(job.job_id())
-    result = job.result()
-    counts = result.get_counts()
-    delayed_result = backend.retrieve_job(job.job_id()).result()
-    delayed_counts = delayed_result.get_counts()
-    print(counts)
-    print(delayed_counts)
+        transpiled = transpile(circuit, backend)
+
+        qobj = assemble(transpiled, backend, shots=num_shots)
+        job = backend.run(qobj)
+        print(job.job_id())
+        result = job.result()
+        print("result : {result}")
+        counts = result.get_counts()
+        delayed_result = backend.retrieve_job(job.job_id()).result()
+        delayed_counts = delayed_result.get_counts()
+        print(counts)
+        print(delayed_counts)
+    
+    else:
+        print(f"Running Bernstein with n = {n}")
+        # python3 bernstein.py -n 1 -c -s
+        simulator = cirq.Simulator()
+        result = simulator.run(circuit)   
+        print(result)

@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 
 import random
 import cirq
-from cirq import H, X, CNOT, measure
+from cirq import H, X, CNOT, measure, TOFFOLI
 import requests
 
 
@@ -61,6 +61,32 @@ def make_circuit(qbts, oracle):
     for i, qbt in enumerate(qbts[:-1]):
         m.append(measure(qbt, key=f'result-{i}'))    
     c.append(m)    
+    return c
+
+def make_circuit_error_correction(qbts):
+    """
+    hard coded for the case when n = 1 and f is a constant function
+    Input:
+    qbts -- qubits in the circuit;
+    oracle -- the circuit implementation of the black-box function f;
+    Output:
+    c -- circuit that implements the Deutsch-Jozsa algorithm
+    """        
+    assert len(qbts) == 6
+    c = cirq.Circuit()
+    c.append([CNOT(qbts[0], qbts[2])])
+    c.append([CNOT(qbts[0], qbts[4])])
+
+    # deutsch part
+    c.append([X(qbts[1]), X(qbts[3]), X(qbts[5])])
+    c.append([H(qbt) for qbt in qbts])
+    c.append([H(qbts[0]), H(qbts[2]), H(qbts[4])])    
+
+    c.append([CNOT(qbts[0], qbts[2])])
+    c.append([CNOT(qbts[0], qbts[4])])
+    c.append([TOFFOLI(qbts[4], qbts[2], qbts[0])])
+
+    c.append(measure(qbts[0], key='result'))
     return c
 
 
@@ -136,23 +162,47 @@ if __name__ == '__main__':
         help='specify the type of generated function f, '
         '1 for constant, 0 for balanced, -1 for random', default=-1
     )
+    argparser.add_argument(
+        '-c', '--correction', help='Do error correction', 
+        action='store_true', default=False
+    )
+    argparser.add_argument(
+        '-s', '--simulation', help='Do simulation or run on real machine', 
+        action='store_true', default=False
+    )
 
     args = vars(argparser.parse_args())
 
     constant = int(args['type'])
     n = int(args['num_bits'])
-    qbts = cirq.LineQubit.range(n + 1)    
-    oracle = make_oracle(qbts, n, constant, visual=True)
-    circuit = make_circuit(qbts, oracle)
+    correction = bool(args['correction'])
+    simulation = bool(args['simulation'])    
 
-    url = 'http://quant-edu-scalability-tools.wl.r.appspot.com/send'
-    email, uid = load_credential()
-    job_payload = {
-        "circuit":cirq.to_json(circuit), 
-        "email":email, 
-        "repetitions":1, 
-        "student_id":uid
-    }
-    response = requests.post(url, json=job_payload)
-    print(response.text)
+    if not correction:        
+        qbts = cirq.LineQubit.range(n + 1)    
+        oracle = make_oracle(qbts, n, constant, visual=True)
+        circuit = make_circuit(qbts, oracle)
+    else:
+        print("Doing error correction")
+        qbts = cirq.LineQubit.range(3 * (n + 1))
+        circuit = make_circuit_error_correction(qbts)
+
+    if not simulation:
+        url = 'http://quant-edu-scalability-tools.wl.r.appspot.com/send'
+        email, uid = load_credential()
+        job_payload = {
+            "circuit":cirq.to_json(circuit), 
+            "email":email, 
+            "repetitions":50, 
+            "student_id":uid
+        }
+        response = requests.post(url, json=job_payload)
+        print(response.text)
+    
+    else:
+        print(f"Running Deutsch-Josza with n = {n}")
+        # python3 deutsch.py -n 1 -c -s
+        simulator = cirq.Simulator()
+        result = simulator.run(circuit)   
+        print(result)
 
