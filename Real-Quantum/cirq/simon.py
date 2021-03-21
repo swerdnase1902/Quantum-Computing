@@ -80,7 +80,7 @@ def linear_solver(matrix, tolerance):
     U, s, V = np.linalg.svd(matrix)
     rank = np.sum(np.abs(s) > tolerance)
 
-    if rank == n - 1: # If the rank is full
+    if rank == 1: # If the rank is full
         null_space = sp.linalg.null_space(matrix).T[0]
         solution = np.around(null_space, 3) # Discard small values
         minval = abs(min(solution[np.nonzero(solution)], key=abs))
@@ -224,17 +224,39 @@ import collections
 import json
 import pickle
 import cirq
+def chunks(lst, n):
+    """Yield successive n-sized chunks from lst."""
+    for i in range(0, len(lst), n):
+        yield lst[i:i + n]
+
 def check_result_with_ids(job_id):
     result = lookup_google(job_id)["Jobs by job_id"][job_id]["result"]
-    
 
     result_dict = dict(map(lambda x:x.split('='), result.splitlines()))
     pairs = zip(*(result_dict[key] for key in sorted(result_dict.keys())))
     binary_results = list(map(lambda x:''.join(x), pairs))
     counts = collections.Counter(binary_results)
-    print(counts)
-check_result_with_ids("6430463639945216") # 4923025782734848 6430463639945216
-assert(0)
+    print(solve(counts, n = 2))
+
+def solve(results, n):
+    new_results = []
+    for key, value in results.items():
+        qubit = np.array([int(i) for i in key])
+        print(qubit.shape)
+        for i in range(value):
+            new_results.append(qubit)
+    results = list(chunks(new_results, n - 1))
+    solutions = []
+    for i in range(len(results)):
+        equations = results[i]
+        flag, solution = linear_solver(equations, tolerance=1e-6)
+        if flag:
+                solutions.append(str(solution))
+    freqs = Counter(solutions)
+    try:
+        return freqs.most_common(1)[0]
+    except:
+        return [None]
 
 '''
 Parameters
@@ -262,18 +284,4 @@ print("Found Solution (Simulated, error correction):", solution[0])
 # 2. Without error correction
 jod_id = make_a_run_google(s, n, not_time, swap_time, m, tolerance)
 
-# 3. With error correction
-jod_id_with_error_correction = make_a_run_google(s, n, not_time, swap_time, m, tolerance, error_correction=True)
-
-print(jod_id)
-print(jod_id_with_error_correction)
-import json
-with open("simon_history_record.json", "w") as f:
-    json.dump(
-        {
-            "s": str(s),
-            "jod_id": str(jod_id),
-            "jod_id_with_erro_correction": str(jod_id_with_error_correction)
-        },
-        f
-    )
+check_result_with_ids("6430463639945216")
