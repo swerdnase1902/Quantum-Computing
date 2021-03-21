@@ -1,15 +1,3 @@
-#!/usr/bin/env python
-# coding: utf-8
-
-# # QAOA Solver in Cirq
-# 
-# We will use `cirq` to implement the QAOA solver here.
-# 
-
-# First, import the necessary libraries
-
-# In[1]:
-
 
 import cirq
 import numpy as np
@@ -23,17 +11,8 @@ import scipy
 import argparse
 
 
-# The variable names `n`, `m`, `t`, `C`, `B`, `C`, `B`, `Sep`, and `Mix` follow the notation in lecture notes.
-# 
-# ![Definition of MaxSAT](./images/Qes](./images/HelperMatrices.png)
-# ![QAQA Algorithm](./images/qaoa_alg.png)
-# ## Max2SAT Class
-# In order to use QAQA, we need to first define the structure of `Max2SAT`
-
-# In[2]:
-
-
 class Max2SAT:
+    # This class is probably NOT needed at all since we are hard-coding the everywhere x0 AND (x0 OR x1)
     def __init__(self, n, m, t, max2sat = None):
         self.n = n
         self.m = m
@@ -134,38 +113,23 @@ class Max2SAT:
 
 class QAOASolver:
     def _compute_C_(self):
-        # TODO: implement C
-        """
-        The plan is to enumerate all possible bit strings z and generate the C matrix
-        """
-        num_qubits = self.n
-        C_column_vecs = list()
-        num_dim = 2 ** num_qubits
-        for z in range(num_dim):
-            # Calculate Count(z) * |z>
-            Count = self.max2sat.Count(z)
-            z_vec = np.zeros(shape=(num_dim, 1))
-            z_vec[z, 0] = 1
-            C_column_vecs.append(Count * z_vec)
-        C = np.concatenate(C_column_vecs, axis=1)
-        return C  # np.eye(num_dim)
+        # Since we are hard-coding, don't even need this
+        pass
 
     def _compute_B(self):
-        # TODO: implement B
-        num_dim = 2 ** self.n
-        B = np.zeros(shape=(num_dim, num_dim))
-        NOT = np.array([[0, 1], [1, 0]])
-        for k in range(self.n):
-            B = B + np.kron(np.eye(2 ** k), np.kron(NOT, np.eye(2 ** (self.n - k - 1))))
-        return B
+        # Since we are hard-coding, don't even need this
+        pass
 
     def __init__(self, max2sat_instance: Max2SAT, num_tries):
+        # Probably don't need the following 2 lines of code since we are hardcoding (x0 AND (x0 OR x1))
         # num_tries is the number of different choices of (gamma, beta)
         self.max2sat = max2sat_instance
-        self.num_tries = num_tries
         self.n = max2sat_instance.n
-        self.m = max2sat_instance.m
-        self.t = max2sat_instance.t
+        self.num_tries = num_tries
+
+        # No need of the following two lines since we are hardcoding x0 AND (x0 OR x1)
+        # self.m = max2sat_instance.m
+        # self.t = max2sat_instance.t
 
         # TODO: Get C as np.array
         self.C = self._compute_C_()
@@ -174,38 +138,40 @@ class QAOASolver:
         self.B = self._compute_B()
 
     def _Mix(self, beta):
-        # TODO: implement Mix
-        B = self.B
-        Mix = -1j * beta * B
-        Mix = scipy.linalg.expm(Mix)
-        return Mix
+        # Hardcoding the Mixer Gate, so we don't even need this function
+        pass
 
     def _Sep(self, gamma):
-        # TODO: implement Mix
-        C = self.C
-        Sep = -1j * gamma * C
-        Sep = scipy.linalg.expm(Sep)
-        return Sep
+        # Hardcoding the Mixer Gate, so we don't even need this function
+        pass
 
     def _make_qaoa_circuit(self, beta, gamma):
 
         # Initializing the qubits
-        n = self.n
+        # We are hardcoding the example (x0 AND (x0 OR x1)) in lecture with 2 clauses. Since the Sep requires 1 extra helper qubits, we set n=3 here
+        n = 3
+
         inputs = [cirq.GridQubit(i, 0) for i in range(n)]
         circuit = cirq.Circuit()
 
-        # 1. Apply H^N to the input quibuts
-        for i in range(n):
+        # 1. Apply H^N to the input quibuts, don't apply to helper qubit
+        for i in range(n-1):
             circuit.append(cirq.H(inputs[i]))
+        # helper qubit should be set to 1
+        circuit.append(cirq.X(inputs[-1]))
 
         # 2. Add Sep(gamma)
-        circuit.append(cirq.ops.MatrixGate(self._Sep(gamma))(*inputs))
+        # TODO: Harold
+        circuit#.append(???)
 
-        # 3. Add Mix(Betta)
-        circuit.append(cirq.ops.MatrixGate(self._Mix(beta))(*inputs))
 
-        # 4. Measurement
-        circuit.append(cirq.measure(*inputs, key='result'))
+        # 3. Add Mix(Beta) We are hardcoding Mixer with beta=pi/2. Make sure don't touch the helper qubit
+        # circuit.append(cirq.ops.MatrixGate(self._Mix(beta))(*inputs))
+        for i in range(n-1):
+            circuit.append(cirq.X(inputs[i]))
+
+        # 4. Measurement. Don't measure the helper qubit
+        circuit.append(cirq.measure(*(inputs[:-1]), key='result'))
 
         return circuit
 
@@ -218,7 +184,8 @@ class QAOASolver:
         history = list()
         for trial in range(self.num_tries):
             gamma = random.uniform(0, 2 * math.pi)
-            beta = random.uniform(0, math.pi)
+            # Hardcode beta = pi/2
+            beta = np.pi/2# random.uniform(0, math.pi)
             circuit = self._make_qaoa_circuit(beta, gamma)
             simulator = cirq.Simulator()
             result = simulator.run(circuit)
