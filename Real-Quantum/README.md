@@ -8,6 +8,14 @@ Zhe Zeng: UID
 ## DJ
 ## Grover
 ## Simon
+Following the approach in https://en.wikipedia.org/wiki/Quantum_error_correction#/(Bit flip code), we use two additional help qubits per input qubit to correct bit flip code. 
+
+On local simulation, we find that the error error correction is correct in that it will not incorrectly change the original correct result. We test with two input qubits and the random generated string is 01. Both simulations with/without error correction could find the correct answer.
+
+On IBM's computer, we find that the real quantum computers are still error-prone. Without error correction, the results from the quantum computer do not produce a valid answer (the linear solver fails with the returned parameters); with erro correction, the result we found is 10, which is wrong.
+
+Google's computer does not support CCNOT so we cannot run error correction.
+
 ## QAOA
 Joseph
 ## Shor
@@ -17,6 +25,9 @@ Joseph
 ## DJ
 ## Grover
 ## Simon
+We are able to run on IBM and below is the result we got from IBM. It seems the computer makes a lot of errors. ![simon_ibm](figures/simon_ibm.png)
+
+On Google, the computer still makes errors. Out of 10000 runs, only 2053 of them gave the correct answer. The most frequent results produce the wrong answer 10 (the correct string is 01).
 ## QAOA
 Joseph
 ## Shor
@@ -30,8 +41,14 @@ Not enough information for this section. As Google and IBM don't let us test thi
 ## DJ
 ## Grover
 ## Simon
+On IBM, the results are all wrong with or without error correction.
+
+On Google, the results seem almost random and is still wrong.
+
 ## QAOA
-Harold
+On IBM, we got pretty good results. It can be seen that the state 11 gets the most hits, which is the correct solution. ![qaoa_ibm](figures/qaoa_ibm.png)
+
+Google does not support CCNOT gate so we are not able to get QAOA on Google.
 ## Shor
 
 # Compare your results from running Cirq programs on the Google quantum computer with your results from running those same Cirq programs on the simulator.
@@ -39,6 +56,7 @@ Harold
 ## DJ
 ## Grover
 ## Simon
+The results from Google is still very unstable. On simulators, we can get the correct answer on very few trys but on Google, the results do not seem to improve even if we increase the number of runs, possbily due to very high error rates.
 ## QAOA
 Joseph
 ## Shor
@@ -48,9 +66,16 @@ Joseph
 ## DJ
 ## Grover
 ## Simon
+To test on IBM, simply run "python qiskit/simon.py" and the program will ran an example. It will first run a simulation and then connect IBM to run the quantmn computer. It will run two versions: simulated and IBM.
+
+To test on Google, simply run "python qiskit/QAOA.py" and the program will ran an example. It will first run a simulation and then connect Google to run the quantmn computer. After we get the job id and the run finishes on Goolge, we could call check_result_with_ids() to solve the retured results.
+
 ## QAOA
-Harold
+To test on IBM, simply run "python qiskit/QAOA.py" and the program will ran an example. It will first run a simulation and then connect IBM to run the quantmn computer. It will run four versions: 1) simulated, 2) simulated-error-correction, 3) IBM, and 4) IBM-error-correction.
+
 ## Shor
 
 # Which modifications of the programs did you have to make when moving from the simulator to the quantum computer?
 Work on this together. Make some bullet points first
+1) Remove custom gates
+2) 
