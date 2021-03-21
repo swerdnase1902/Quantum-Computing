@@ -119,7 +119,6 @@ def lookup_google(jobid=None):
     else:
         lookup_ids = {'student_id': uid}
     response = requests.get(lookup_url, params=lookup_ids)
-    print(response)
     data = response.json()
     return data
 
@@ -221,6 +220,21 @@ def make_a_run(s, n, not_time, swap_time, m, tolerance, solver = True, error_cor
     else:
         return s, None, simulation_time / m, linear_solver_time / m, circuit
 
+import collections
+import json
+import pickle
+import cirq
+def check_result_with_ids(job_id):
+    result = lookup_google(job_id)["Jobs by job_id"][job_id]["result"]
+    
+
+    result_dict = dict(map(lambda x:x.split('='), result.splitlines()))
+    pairs = zip(*(result_dict[key] for key in sorted(result_dict.keys())))
+    binary_results = list(map(lambda x:''.join(x), pairs))
+    counts = collections.Counter(binary_results)
+    print(counts)
+check_result_with_ids("6430463639945216") # 4923025782734848 6430463639945216
+assert(0)
 
 '''
 Parameters
