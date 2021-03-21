@@ -9,10 +9,9 @@ import sys
 import math
 import scipy
 import argparse
-
+import requests
 
 class Max2SAT:
-    # This class is probably NOT needed at all since we are hard-coding the everywhere x0 AND (x0 OR x1)
     def __init__(self, n, m, t, max2sat = None):
         self.n = n
         self.m = m
@@ -106,11 +105,33 @@ class Max2SAT:
         return "  AND  ".join(report_str)
 
 
-# ## QAOA Class
-# We define a Python class called `QAOASolver` that approximately solves an instance of the MaxSAT problem.
+def load_credential():
+    # will return (ucla_email, student_id)
+    if hasattr(load_credential, 'email') and hasattr(load_credential, 'uid'):
+        return load_credential.email, load_credential.uid
+    credential_file = open('../cirq_credentials.txt', 'r')
+    lines = credential_file.readlines()
+    credential_file.close()
+    email = lines[0].strip()
+    uid = lines[1].strip()
 
-# In[6]:
+    load_credential.email = email
+    load_credential.uid = uid
+    return email, uid
 
+def send_to_google(circuit: cirq.Circuit, repetitions=100):
+    send_url = 'http://quant-edu-scalability-tools.wl.r.appspot.com/send'
+    json_circuit = cirq.to_json(circuit)
+    email, uid = load_credential()
+    job_payload = {
+        'circuit': json_circuit,
+        'email': email,
+        'repetitions': repetitions,
+        'student_id': uid
+    }
+    response = requests.post(url=send_url, json=job_payload)
+    return response
+    print(response.text)
 class QAOASolver:
     def _compute_C_(self):
         # Since we are hard-coding, don't even need this
@@ -181,124 +202,100 @@ class QAOASolver:
         return qaoa_circuit'''
 
     def solve(self):
-        history = list()
-        for trial in range(self.num_tries):
-            gamma = random.uniform(0, 2 * math.pi)
-            # Hardcode beta = pi/2
-            beta = np.pi/2# random.uniform(0, math.pi)
-            circuit = self._make_qaoa_circuit(beta, gamma)
-            simulator = cirq.Simulator()
-            result = simulator.run(circuit)
-            z = result.measurements['result']
-            history.append((z, self.max2sat.Count(z)))
-        # Pick the measurement z that maximizes Count(z)
-        max_z, num_clause = max(history, key=lambda x: x[1])
-        return max_z, num_clause
+        gamma = random.uniform(0, 2 * math.pi)
+        # Hardcode beta = pi/2
+        beta = np.pi / 2  # random.uniform(0, math.pi)
+        circuit = self._make_qaoa_circuit(beta, gamma)
+
+        response = send_to_google(circuit)
+        print('Just sent your circuit to Google, below is the response.text')
+        print(response.text)
+        # parse job_id
+        jobid = response.text[response.text.find(':') + 1:].strip()
+        return jobid
+
+        # simulator = cirq.Simulator()
+        # result = simulator.run(circuit)
+        # z = result.measurements['result']
+
+# def test_correctness():
+#     from tqdm import tqdm
+#     errors = []
+#     for n in range(3, 8):
+#         for m in range(2, n * 3):
+#             my_max2sat = Max2SAT(n, m, 2)
+#             solver = QAOASolver(my_max2sat, num_tries=10)
+#             result, num_clause = solver.solve()
+#
+#             errors.append(abs(my_max2sat.exact_solve() - num_clause))
+#     errors = np.array(errors)
+#     print("Out of {} random test cases, the algorithm is completely correct for {} of the cases.".format(len(errors),
+#                                                                                                          int(sum((
+#                                                                                                                              errors == 0)))))
+#     print("Average difference with respect to the correct answer {}".format(float(sum(errors) / errors.shape[0])))
+
+# def run_benchmark():
+#     max_n = 14
+#     print('We will study how n, the number of variables, affects the execution time of QAOA')
+#     print('We will vary n from {} to {}'.format(2, max_n))
+#     print('Begin benchmarking:')
+#     n_list = list()
+#     exec_times = list()
+#     for n in range(2, max_n):
+#         m = 2 * n
+#         print('Testing n={} and m={}'.format(n, m))
+#         start = time.time()
+#         max2sat = Max2SAT(n, m, 2)
+#         print('The Max2SAT instance that we want to solve by QAQA is {}'.format(max2sat))
+#         solver = QAOASolver(max2sat, num_tries=1)
+#         result, num_clause = solver.solve()
+#         end = time.time()
+#         elapsed = end - start
+#         print('It took {} seconds for QAQA to solve'.format(elapsed))
+#         n_list.append(n)
+#         exec_times.append(elapsed)
+#         print("")
+#
+#     print('Here\'s the graph that tells you how n and execution times relate')
+#     plt.scatter(n_list, exec_times)
+#     plt.plot(n_list, exec_times)
+#     plt.xlabel('n: number of variables')
+#     plt.ylabel('execution time')
+#     plt.title('Number of Variables vs Execution Time')
+#     plt.show()
 
 
-def test_correctness():
-    from tqdm import tqdm
-    errors = []
-    for n in range(3, 8):
-        for m in range(2, n * 3):
-            my_max2sat = Max2SAT(n, m, 2)
-            solver = QAOASolver(my_max2sat, num_tries=10)
-            result, num_clause = solver.solve()
-
-            errors.append(abs(my_max2sat.exact_solve() - num_clause))
-    errors = np.array(errors)
-    print("Out of {} random test cases, the algorithm is completely correct for {} of the cases.".format(len(errors),
-                                                                                                         int(sum((
-                                                                                                                             errors == 0)))))
-    print("Average difference with respect to the correct answer {}".format(float(sum(errors) / errors.shape[0])))
-
-def run_benchmark():
-    max_n = 14
-    print('We will study how n, the number of variables, affects the execution time of QAOA')
-    print('We will vary n from {} to {}'.format(2, max_n))
-    print('Begin benchmarking:')
-    n_list = list()
-    exec_times = list()
-    for n in range(2, max_n):
-        m = 2 * n
-        print('Testing n={} and m={}'.format(n, m))
-        start = time.time()
-        max2sat = Max2SAT(n, m, 2)
-        print('The Max2SAT instance that we want to solve by QAQA is {}'.format(max2sat))
-        solver = QAOASolver(max2sat, num_tries=1)
-        result, num_clause = solver.solve()
-        end = time.time()
-        elapsed = end - start
-        print('It took {} seconds for QAQA to solve'.format(elapsed))
-        n_list.append(n)
-        exec_times.append(elapsed)
-        print("")
-
-    print('Here\'s the graph that tells you how n and execution times relate')
-    plt.scatter(n_list, exec_times)
-    plt.plot(n_list, exec_times)
-    plt.xlabel('n: number of variables')
-    plt.ylabel('execution time')
-    plt.title('Number of Variables vs Execution Time')
-    plt.show()
-
-
-def run_custom_input(n, m, sat_str):
-    my_max2sat = Max2SAT(n, m, 2, sat_str)
-    print('We will run QAQA with your custom input {}'.format(my_max2sat))
+def run_hardcoded_input_on_google():
+    # TODO: Harold hardcode my_max2sat to encode (x0 AND (x0 OR x1))
+    my_max2sat = Max2SAT(1, 2, 2, '')
+    print('We will run QAQA with hardcoded input (x0 AND (x0 OR x1)) on Google')
     solver = QAOASolver(my_max2sat, num_tries=10)
-    result, num_clause = solver.solve()
+    solver.solve()
 
-    print("The variable assignment we found: ")
-    for index, i in enumerate(result[0]):
-        print("  v_{} : {}".format(index, i))
-    print("Max number of clause that can be satisfied:", num_clause)
+    # print("The variable assignment we found: ")
+    # for index, i in enumerate(result[0]):
+    #     print("  v_{} : {}".format(index, i))
+    # print("Max number of clause that can be satisfied:", num_clause)
 
-def test_correctness_wrapper():
-    print("##################### A Random Test Run #####################")
-    my_max2sat = Max2SAT(6, 50, 2)
-    print(my_max2sat)
-    solver = QAOASolver(my_max2sat, num_tries=10)
-    result, num_clause = solver.solve()
-    print("\nThe variable assignment we found: ")
-    for index, i in enumerate(result[0]):
-        print("  v_{} : {}".format(index, i))
-    print("")
-    print("Max number of clause that can be satisfied:", num_clause)
-    print("Exact solver:", my_max2sat.exact_solve())
-
-    print('\n\n\n')
-    print("##################### Testing Correctness #####################")
-    test_correctness()
+# def test_correctness_wrapper():
+#     print("##################### A Random Test Run #####################")
+#     my_max2sat = Max2SAT(6, 50, 2)
+#     print(my_max2sat)
+#     solver = QAOASolver(my_max2sat, num_tries=10)
+#     result, num_clause = solver.solve()
+#     print("\nThe variable assignment we found: ")
+#     for index, i in enumerate(result[0]):
+#         print("  v_{} : {}".format(index, i))
+#     print("")
+#     print("Max number of clause that can be satisfied:", num_clause)
+#     print("Exact solver:", my_max2sat.exact_solve())
+#
+#     print('\n\n\n')
+#     print("##################### Testing Correctness #####################")
+#     test_correctness()
 
 if __name__ == '__main__':
 
-    argparser = argparse.ArgumentParser(description='Demonstration of the QAQA algorithm')
-    argparser.add_argument('-b', '--benchmark', help='Run various benchmark', action='store_true', default=False)
-    argparser.add_argument('-c', '--custom2SAT', action='store_true',
-                           help='Run QAQA algorithm with custom 2SAT instance',
-                           default=False)
-    argparser.add_argument('-s', '--str_repr',
-                           help='If --custom2SAT is set, set the 2SAT string representation')
-    argparser.add_argument('-n', '--num_vars',
-                           help='If --custom2SAT is set, set the number of variables of the 2SAT instance')
-    argparser.add_argument('-m', '--num_clauses',
-                           help='If --custom2SAT is set, set the number of clauses of the 2SAT instance')
-    argparser.add_argument('-t', '--test_correct', help='Test if QAQA yields the correct answer', default=False, action='store_true')
-    args = vars(argparser.parse_args())
-
-    if args['custom2SAT']:
-        n = int(args['num_vars'])
-        m = int(args['num_clauses'])
-        twoSAT_str = args['str_repr']
-        run_custom_input(n, m, twoSAT_str)
-    elif args['benchmark']:
-        run_benchmark()
-    elif args['test_correct']:
-        test_correctness_wrapper()
-    else:
-        print('Error: You need to either provide --custom2SAT option or --benchmark option or --test_correct option. Exiting',
-              file=sys.stderr)
-        exit(1)
+    run_hardcoded_input_on_google()
 
 
