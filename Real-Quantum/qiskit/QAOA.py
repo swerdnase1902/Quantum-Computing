@@ -1,15 +1,3 @@
-#!/usr/bin/env python
-# coding: utf-8
-
-# # QAOA Solver in Cirq
-# 
-# We will use `cirq` to implement the QAOA solver here.
-# 
-
-# First, import the necessary libraries
-
-# In[1]:
-
 
 import cirq
 import numpy as np
@@ -21,18 +9,11 @@ import sys
 import math
 import scipy
 import argparse
-
-
-# The variable names `n`, `m`, `t`, `C`, `B`, `C`, `B`, `Sep`, and `Mix` follow the notation in lecture notes.
-# 
-# ![Definition of MaxSAT](./images/Qes](./images/HelperMatrices.png)
-# ![QAQA Algorithm](./images/qaoa_alg.png)
-# ## Max2SAT Class
-# In order to use QAQA, we need to first define the structure of `Max2SAT`
-
-# In[2]:
-
-
+import requests
+from qiskit import QuantumCircuit, execute, Aer
+from qiskit.visualization import plot_histogram
+from qiskit import IBMQ, assemble, transpile
+from typing import Tuple
 class Max2SAT:
     def __init__(self, n, m, t, max2sat = None):
         self.n = n
@@ -127,45 +108,57 @@ class Max2SAT:
         return "  AND  ".join(report_str)
 
 
-# ## QAOA Class
-# We define a Python class called `QAOASolver` that approximately solves an instance of the MaxSAT problem.
 
-# In[6]:
+def load_credential():
+    return "9da9d4d05ae90bc8114510e18006eb1fc5435fb057c441ca9be7a83a59c4b864c16b1e51a91efc772e1b000c655a84a267708418bea1852a129af8fdfad31e68"
+
+def send_to_ibm(circuit: cirq.Circuit, repetitions):
+    circ = circuit
+    qbits = circ.all_qubits()
+
+    provider = IBMQ.load_account()
+    # backend = provider.backends.backend_name
+    backend = provider.backends.ibmq_athens
+
+    def cirq_to_qiskit(circuit: 'cirq.Circuit', qubits: Tuple['cirq.Qid', ...]):
+        # here you go: https://quantumcomputing.stackexchange.com/questions/14164/can-i-run-cirq-on-ibmq
+        qasm_output = cirq.QasmOutput((circuit.all_operations()), qubits)
+        qasm_circuit = QuantumCircuit().from_qasm_str(str(qasm_output))
+        # Execute the circuit qiskit backend
+        # job = execute(qasm_circuit, Aer.get_backend(backend), shots=1000)
+        # Grab results from the job
+        return qasm_circuit
+    qiskit_circuit = cirq_to_qiskit(circ, qbits)
+
+
+    transpiled = transpile(qiskit_circuit, backend)
+    qobj = assemble(transpiled, backend, shots=repetitions)
+    job = backend.run(qobj)
+    result = job.result()
+    counts = result.get_counts()
+    delayed_result = backend.retrieve_job(job.job_id()).result()
+    delayed_counts = delayed_result.get_counts()
+    return delayed_counts
 
 class QAOASolver:
     def _compute_C_(self):
-        # TODO: implement C
-        """
-        The plan is to enumerate all possible bit strings z and generate the C matrix
-        """
-        num_qubits = self.n
-        C_column_vecs = list()
-        num_dim = 2 ** num_qubits
-        for z in range(num_dim):
-            # Calculate Count(z) * |z>
-            Count = self.max2sat.Count(z)
-            z_vec = np.zeros(shape=(num_dim, 1))
-            z_vec[z, 0] = 1
-            C_column_vecs.append(Count * z_vec)
-        C = np.concatenate(C_column_vecs, axis=1)
-        return C  # np.eye(num_dim)
+        # Since we are hard-coding, don't even need this
+        pass
 
     def _compute_B(self):
-        # TODO: implement B
-        num_dim = 2 ** self.n
-        B = np.zeros(shape=(num_dim, num_dim))
-        NOT = np.array([[0, 1], [1, 0]])
-        for k in range(self.n):
-            B = B + np.kron(np.eye(2 ** k), np.kron(NOT, np.eye(2 ** (self.n - k - 1))))
-        return B
+        # Since we are hard-coding, don't even need this
+        pass
 
     def __init__(self, max2sat_instance: Max2SAT, num_tries):
+        # Probably don't need the following 2 lines of code since we are hardcoding (x0 AND (x0 OR x1))
         # num_tries is the number of different choices of (gamma, beta)
         self.max2sat = max2sat_instance
-        self.num_tries = num_tries
         self.n = max2sat_instance.n
-        self.m = max2sat_instance.m
-        self.t = max2sat_instance.t
+        self.num_tries = num_tries
+
+        # No need of the following two lines since we are hardcoding x0 AND (x0 OR x1)
+        # self.m = max2sat_instance.m
+        # self.t = max2sat_instance.t
 
         # TODO: Get C as np.array
         self.C = self._compute_C_()
@@ -174,51 +167,71 @@ class QAOASolver:
         self.B = self._compute_B()
 
     def _Mix(self, beta):
-        # TODO: implement Mix
-        B = self.B
-        Mix = -1j * beta * B
-        Mix = scipy.linalg.expm(Mix)
-        return Mix
+        # Hardcoding the Mixer Gate, so we don't even need this function
+        pass
 
     def _Sep(self, gamma):
-        # TODO: implement Mix
-        C = self.C
-        Sep = -1j * gamma * C
-        Sep = scipy.linalg.expm(Sep)
-        return Sep
+        # Hardcoding the Mixer Gate, so we don't even need this function
+        pass
 
     def _make_qaoa_circuit(self, beta, gamma):
 
         # Initializing the qubits
-        n = self.n
+        # We are hardcoding the example (x0 OR x1) in lecture with 2 clauses. Following https://piazza.com/class/kjky6kvh4v21rm?cid=385, we need four qubits
+        n = 4
+        actual_n = 2
+
         inputs = [cirq.GridQubit(i, 0) for i in range(n)]
         circuit = cirq.Circuit()
 
-        # 1. Apply H^N to the input quibuts
-        for i in range(n):
+        # 1. Apply H^N to the input quibuts, don't apply to helper qubit
+        for i in range(actual_n):
             circuit.append(cirq.H(inputs[i]))
 
-        # 2. Add Sep(gamma)
-        circuit.append(cirq.ops.MatrixGate(self._Sep(gamma))(*inputs))
+        
+        # helper qubit should be set to 1
+        circuit.append(cirq.X(inputs[-1]))
 
-        # 3. Add Mix(Betta)
-        circuit.append(cirq.ops.MatrixGate(self._Mix(beta))(*inputs))
+        for i in range(actual_n):
+            circuit.append(cirq.X(inputs[i]))
+        circuit.append(cirq.TOFFOLI(inputs[0], inputs[1], inputs[3]))
 
-        # 4. Measurement
-        circuit.append(cirq.measure(*inputs, key='result'))
+        circuit.append(cirq.X(inputs[3]))
+
+        circuit.append(cirq.CZPowGate(exponent=-4)(inputs[3], inputs[2]))
+        
+        circuit.append(cirq.TOFFOLI(inputs[0], inputs[1], inputs[3]))
+
+        # 3. Add Mix(Beta) We are hardcoding Mixer with beta=pi/2. Make sure don't touch the helper qubit
+        # circuit.append(cirq.ops.MatrixGate(self._Mix(beta))(*inputs))
+        for i in range(actual_n):
+            circuit.append(cirq.X(inputs[i]))
+
+        # 4. Measurement. Don't measure the helper qubit
+        circuit.append(cirq.measure(*(inputs[:actual_n]), key='result'))
 
         return circuit
 
-        '''qubits = cirq.LineQubit.range(self.n)
-        ops = [cirq.H(q) for q in qubits] + [cirq.measure(*qubits, key='result')]
-        qaoa_circuit = cirq.Circuit(ops)
-        return qaoa_circuit'''
-
     def solve(self):
+        gamma = np.pi / 4
+        # Hardcode beta = pi/2
+        beta = np.pi / 2  # random.uniform(0, math.pi)
+        circuit = self._make_qaoa_circuit(beta, gamma)
+
+        restuls = send_to_ibm(circuit ,repetitions=50)
+        history = list()
+        for key, value in restuls.items():
+            z = np.array([int(i) for i in key])
+            history.append((z, self.max2sat.Count(z)))
+        max_z, num_clause = max(history, key=lambda x: x[1])
+        return max_z, num_clause
+
+    def solve_normal(self):
         history = list()
         for trial in range(self.num_tries):
-            gamma = random.uniform(0, 2 * math.pi)
-            beta = random.uniform(0, math.pi)
+            gamma = np.pi / 4
+            # Hardcode beta = pi/2
+            beta = np.pi / 2  # random.uniform(0, math.pi)
             circuit = self._make_qaoa_circuit(beta, gamma)
             simulator = cirq.Simulator()
             result = simulator.run(circuit)
@@ -228,110 +241,16 @@ class QAOASolver:
         max_z, num_clause = max(history, key=lambda x: x[1])
         return max_z, num_clause
 
-
-def test_correctness():
-    from tqdm import tqdm
-    errors = []
-    for n in range(3, 8):
-        for m in range(2, n * 3):
-            my_max2sat = Max2SAT(n, m, 2)
-            solver = QAOASolver(my_max2sat, num_tries=10)
-            result, num_clause = solver.solve()
-
-            errors.append(abs(my_max2sat.exact_solve() - num_clause))
-    errors = np.array(errors)
-    print("Out of {} random test cases, the algorithm is completely correct for {} of the cases.".format(len(errors),
-                                                                                                         int(sum((
-                                                                                                                             errors == 0)))))
-    print("Average difference with respect to the correct answer {}".format(float(sum(errors) / errors.shape[0])))
-
-def run_benchmark():
-    max_n = 14
-    print('We will study how n, the number of variables, affects the execution time of QAOA')
-    print('We will vary n from {} to {}'.format(2, max_n))
-    print('Begin benchmarking:')
-    n_list = list()
-    exec_times = list()
-    for n in range(2, max_n):
-        m = 2 * n
-        print('Testing n={} and m={}'.format(n, m))
-        start = time.time()
-        max2sat = Max2SAT(n, m, 2)
-        print('The Max2SAT instance that we want to solve by QAQA is {}'.format(max2sat))
-        solver = QAOASolver(max2sat, num_tries=1)
-        result, num_clause = solver.solve()
-        end = time.time()
-        elapsed = end - start
-        print('It took {} seconds for QAQA to solve'.format(elapsed))
-        n_list.append(n)
-        exec_times.append(elapsed)
-        print("")
-
-    print('Here\'s the graph that tells you how n and execution times relate')
-    plt.scatter(n_list, exec_times)
-    plt.plot(n_list, exec_times)
-    plt.xlabel('n: number of variables')
-    plt.ylabel('execution time')
-    plt.title('Number of Variables vs Execution Time')
-    plt.show()
-
-
-def run_custom_input(n, m, sat_str):
-    my_max2sat = Max2SAT(n, m, 2, sat_str)
-    print('We will run QAQA with your custom input {}'.format(my_max2sat))
+def run_hardcoded_input_on_ibm():
+    my_max2sat = Max2SAT(2, 1, 2, "V0 OR V1")
+    print('We will run QAQA with hardcoded input (x0 OR x1) on IBM')
     solver = QAOASolver(my_max2sat, num_tries=10)
-    result, num_clause = solver.solve()
+    print("Normal solver : ", solver.solve_normal()[1])
+    solver.solve()
 
-    print("The variable assignment we found: ")
-    for index, i in enumerate(result[0]):
-        print("  v_{} : {}".format(index, i))
-    print("Max number of clause that can be satisfied:", num_clause)
-
-def test_correctness_wrapper():
-    print("##################### A Random Test Run #####################")
-    my_max2sat = Max2SAT(6, 50, 2)
-    print(my_max2sat)
-    solver = QAOASolver(my_max2sat, num_tries=10)
-    result, num_clause = solver.solve()
-    print("\nThe variable assignment we found: ")
-    for index, i in enumerate(result[0]):
-        print("  v_{} : {}".format(index, i))
-    print("")
-    print("Max number of clause that can be satisfied:", num_clause)
-    print("Exact solver:", my_max2sat.exact_solve())
-
-    print('\n\n\n')
-    print("##################### Testing Correctness #####################")
-    test_correctness()
 
 if __name__ == '__main__':
 
-    argparser = argparse.ArgumentParser(description='Demonstration of the QAQA algorithm')
-    argparser.add_argument('-b', '--benchmark', help='Run various benchmark', action='store_true', default=False)
-    argparser.add_argument('-c', '--custom2SAT', action='store_true',
-                           help='Run QAQA algorithm with custom 2SAT instance',
-                           default=False)
-    argparser.add_argument('-s', '--str_repr',
-                           help='If --custom2SAT is set, set the 2SAT string representation')
-    argparser.add_argument('-n', '--num_vars',
-                           help='If --custom2SAT is set, set the number of variables of the 2SAT instance')
-    argparser.add_argument('-m', '--num_clauses',
-                           help='If --custom2SAT is set, set the number of clauses of the 2SAT instance')
-    argparser.add_argument('-t', '--test_correct', help='Test if QAQA yields the correct answer', default=False, action='store_true')
-    args = vars(argparser.parse_args())
-
-    if args['custom2SAT']:
-        n = int(args['num_vars'])
-        m = int(args['num_clauses'])
-        twoSAT_str = args['str_repr']
-        run_custom_input(n, m, twoSAT_str)
-    elif args['benchmark']:
-        run_benchmark()
-    elif args['test_correct']:
-        test_correctness_wrapper()
-    else:
-        print('Error: You need to either provide --custom2SAT option or --benchmark option or --test_correct option. Exiting',
-              file=sys.stderr)
-        exit(1)
+    run_hardcoded_input_on_ibm()
 
 
