@@ -9,7 +9,7 @@ import random
 import statistics
 import sys
 import requests
-
+import collections
 import timeout_decorator
 
 
@@ -302,6 +302,17 @@ def lookup_google(jobid=None):
         lookup_ids = {'student_id': uid}
     response = requests.get(lookup_url, params=lookup_ids)
     data = response.json()
+
+    if 'result' in data['Jobs by job_id'][jobid]:
+        result = data['Jobs by job_id'][jobid]['result']
+        result_dict = dict(map(lambda x: x.split('='), result.splitlines()))
+        pairs = zip(*(result_dict[key] for key in sorted(result_dict.keys())))
+        binary_results = list(map(lambda x: ''.join(x), pairs))
+        counts = collections.Counter(binary_results)
+        print('done')
+
+
+
     return data
 
 
