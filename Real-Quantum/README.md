@@ -96,7 +96,13 @@ However, from our experience, we notice that n=9 will crash Google's server (res
 
 # Compare your results across the two quantum computers
 ## BV
+
+We compare the case when n = 2 on both machines. On the IBM machine, we can get correct resutls on most of the trials; however on the Google machine, we observe higher error rate over all the trials.
+
 ## DJ
+
+We compare the case when n = 2 and f being constant on both machines. On the IBM machine, we can get correct resutls on most of the trials; however on the Google machine, we observe higher error rate over all the trials.
+
 ## Grover
 ### Cirq
 On Google, we get resonable result with n=1 qubit. Anything above n=1 will not run because no support for CCNOT gate.
