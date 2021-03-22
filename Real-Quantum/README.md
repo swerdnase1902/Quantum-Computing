@@ -1,6 +1,5 @@
-
 Chiao Lu: 204848946
-Harold: UID
+Liunian Li: 005271406
 Zhe Zeng: 605243830
 
 # Describe your approach to error correction.  Compare runs with and without error correction.
@@ -241,5 +240,13 @@ To run the Shor's algorithm in Cirq, you can use the command "python cirq/shor.p
 
 # Which modifications of the programs did you have to make when moving from the simulator to the quantum computer?
 Work on this together. Make some bullet points first
-1) Remove custom gates
-2) 
+### Remove custom gates
+In some of the simulation codes, we used custom gates that are defined by unitary matrixes. However, when moving to quantum computers, we need to decompose them into basic gates. This is not an easy task as the general decomposition of a custom gate into basic gates is a hard problem.
+
+To circumvent the issue, we manually designed specific examples and decomposed the custom gates by hand.
+
+### Error correction
+When running on simulators, there is no error. But when moving to quantum computers, errors become frequent and it is hard to get a reliable result. We implemented error correction to our best effort, but the current quantum computers can still produce many errors.
+
+### Querying from the server
+When running on Goolge, we have to check the results the next day, which is inconvenient. When running on IBM, the queue could very long and sometimes we need to wait for several hours for our program to be run.
