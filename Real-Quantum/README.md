@@ -1,7 +1,7 @@
 
 Chiao Lu: 204848946
 Harold: UID
-Zhe Zeng: UID
+Zhe Zeng: 605243830
 
 # Describe your approach to error correction.  Compare runs with and without error correction.
 
@@ -118,7 +118,25 @@ Unfortunately we are not able to test the Shor's algorithm on the IBM machine du
 
 # Compare your results from running Cirq programs on the Google quantum computer with your results from running those same Cirq programs on the simulator.
 ## BV
+
+We run a case when n = 2 with the coefficient ground truth being '10'. Below are the results from the Google machine, from which we can tell that we mostly got wrong results.
+
+```shell
+Counter({'00': 6193, '10': 3530, '01': 171, '11': 106})
+```
+
+While on the local simulation, we got correct results at all the trials.
+
 ## DJ
+
+We run a case when f is a constant function and n = 2, that is, the correct result should be '00'. Below are the results form the Google machine, from which we can see that we can get the correct results most of the time.
+
+```shell
+Counter({'00': 8820, '01': 917, '10': 239, '11': 24})
+```
+
+While on the local simulation, we got correct results at all the trials.
+
 ## Grover
 For n=1 both Google and simulator produced resonable results. Anything above n=1, we notice only simulator can run because of CCNOT gate.
 ## Simon
@@ -126,6 +144,8 @@ The results from Google is still very unstable. On simulators, we can get the co
 ## QAOA
 Simulator gives good results. But Google's quantum won't run the circuit because of CNOT.
 ## Shor
+
+Simulator gives good results. But Google's quantum won't run the circuit because controlled swap gates are not supported.
 
 # how to provide input, how to run the program, and how to understand the output
 ## BV
