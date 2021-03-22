@@ -246,7 +246,7 @@ To test on IBM, simply run "python qiskit/QAOA.py" and the program will ran an e
 To run the Shor's algorithm in Cirq, you can use the command "python cirq/shor.py 15"; to run the Shor's algorithm in Qiskit, you can simple use the command "python cirq/shor.py".
 
 # Which modifications of the programs did you have to make when moving from the simulator to the quantum computer?
-Work on this together. Make some bullet points first
+
 ### Remove custom gates
 In some of the simulation codes, we used custom gates that are defined by unitary matrixes. However, when moving to quantum computers, we need to decompose them into basic gates. This is not an easy task as the general decomposition of a custom gate into basic gates is a hard problem.
 
@@ -257,3 +257,6 @@ When running on simulators, there is no error. But when moving to quantum comput
 
 ### Querying from the server
 When running on Goolge, we have to check the results the next day, which is inconvenient. When running on IBM, the queue could very long and sometimes we need to wait for several hours for our program to be run.
+
+### Set Up REST API
+Because we are now commuicating with a remote server, we need to setup some REST API calls by importing `requests` package and provide some credentials.
