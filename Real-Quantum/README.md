@@ -81,6 +81,7 @@ On Google, the computer still makes errors. Out of 10000 runs, only 2053 of them
 ### Cirq
 Doesn't run on Google because it uses CCNOT gate.
 ### Qiskit
+We hand-crafted an example (V0 OR V1) and test the program on IBM's computer. The result is that the state 11 gets the most hits, which is the correct solution. ![qaoa_ibm](figures/qaoa_ibm.png)
 ## Shor
 
 Unfortunately we are not able to test the Shor's algorithm on the IBM machine due to the runtime constraint, where we got the exception message as follows. 
