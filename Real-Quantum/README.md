@@ -114,6 +114,8 @@ On IBM, we got pretty good results. It can be seen that the state 11 gets the mo
 Google does not support CCNOT gate so we are not able to get QAOA on Google.
 ## Shor
 
+Unfortunately we are not able to test the Shor's algorithm on the IBM machine due to the runtime constraint, and either can we test it on the Google machine due to the controlled swap gates not supported.
+
 # Compare your results from running Cirq programs on the Google quantum computer with your results from running those same Cirq programs on the simulator.
 ## BV
 ## DJ
