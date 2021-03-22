@@ -1,6 +1,6 @@
 
 Chiao Lu: 204848946
-Harold: UID
+Liunian Li: 005271406
 Zhe Zeng: UID
 
 # Describe your approach to error correction.  Compare runs with and without error correction.
